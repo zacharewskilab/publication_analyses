@@ -4,7 +4,7 @@ This repository is used to access the code used for the analysis of datasets pub
 
 
 ## List of analyses and citations
-- ["Nault, R., Cholico, G.N., and Zacharewski, T. (2023). Analysis of cell-cell communication by single nuclei RNA se-quencing identifies AHR-mediated induction of NRG-ERBB signaling"][./Analyses/CellChat_SCP1871]
+- ["Nault, R., Cholico, G.N., and Zacharewski, T. (2023). Analysis of cell-cell communication by single nuclei RNA se-quencing identifies AHR-mediated induction of NRG-ERBB signaling"](./Analyses/CellChat_SCP1871)
 
 ```
 @article{,
