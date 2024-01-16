@@ -1,0 +1,99 @@
+---
+title: "Time-Course Cell-Cell Interaction Analysis"
+output: html_notebook
+---
+
+
+# Load Packages
+```{r}
+suppressPackageStartupMessages({
+  library(CellChat)
+  library(patchwork)
+  library(Matrix)
+  library(NMF)
+  library(ggalluvial)
+  library(ComplexHeatmap)
+  library(wordcloud)
+ }) 
+```
+
+# Set Working Directory
+```{r}
+data.dir <- '/mnt/home/cholicog/snRNAseq_Analysis/06_Cell-to-cell_communication---CellChat/Data/'
+output.dir <- '/mnt/home/cholicog/snRNAseq_Analysis/06_Cell-to-cell_communication---CellChat/Output/'
+
+#Work out of Scratch Space 
+#data.dir <- '/mnt/gs21/scratch/cholicog/Data/'
+#output.dir <- '/mnt/gs21/scratch/cholicog/Output/'
+```
+
+
+# Import SCP formatted matrices (Use '05a_CellChat_Inputs.ipynb' to create these data)
+```{r}
+setwd(data.dir)
+sM.pre <- readMM("TC_Sparse_Matrix.mtx")
+sM <- as(sM.pre, "dgCMatrix")
+barcodes <- read.table("barcodes.tsv", sep = '\t', header = FALSE)
+genes <- read.table("features.tsv", sep = '\t', header = FALSE)
+metadata <- read.table("metadata.tsv", sep = '\t', header = TRUE, row.names = 1)
+rownames(sM) <- genes$V1
+colnames(sM) <- barcodes$V1
+```
+
+# Create CellChat Datasets (only need to run once), can reimport the files in the next block
+```{r}
+setwd(data.dir)
+
+object.list <- list()
+
+CellChatDB <- CellChatDB.mouse # use CellChatDB.mouse if running on mouse data
+#showDatabaseCategory(CellChatDB)
+
+# use a subset of CellChatDB for cell-cell communication analysis
+CellChatDB.use <- subsetDB(CellChatDB, search = "Secreted Signaling") # use Secreted Signaling
+
+
+for (d in unique(metadata$Dose_Time)){
+  print(d)
+  cells.use = rownames(metadata)[metadata$Dose_Time == d]
+  
+  # Prepare input data for CellChat
+  data.input = sM[,cells.use]
+  meta <- metadata[cells.use,]
+
+  cellchat <- createCellChat(object = data.input, meta = meta, group.by = "Celltype")
+
+  cellchat <- addMeta(cellchat, meta = meta)
+  cellchat <- setIdent(cellchat, ident.use = "Celltype") # set "labels" as default cell identity
+  levels(cellchat@idents) # show factor levels of the cell labels
+  groupSize <- as.numeric(table(cellchat@idents)) # number of cells in each cell group
+  
+  # set the used database in the object
+  cellchat@DB <- CellChatDB.use
+
+  print('subsetting')
+  
+  # subset the expression data of signaling genes for saving computation cost
+  cellchat <- subsetData(cellchat) # This step is necessary even if using the whole database
+  future::plan("multicore", workers = 4) # do parallel
+
+  cellchat <- identifyOverExpressedGenes(cellchat)
+  cellchat <- identifyOverExpressedInteractions(cellchat)
+
+  print('prob comp')
+  
+  cellchat <- computeCommunProb(cellchat, population.size = TRUE)
+  
+  # Filter out the cell-cell communication if there are only few number of cells in certain cell groups
+  cellchat <- filterCommunication(cellchat, min.cells = 10)
+
+  cellchat <- computeCommunProbPathway(cellchat)
+
+  cellchat <- aggregateNet(cellchat)
+  
+  print('saving')
+  object.list[[paste0('Dose_Time_',d)]] <- cellchat
+  saveRDS(cellchat, file = paste0('cellchat_', d, '.RData'))
+  print('moving on')
+}
+```

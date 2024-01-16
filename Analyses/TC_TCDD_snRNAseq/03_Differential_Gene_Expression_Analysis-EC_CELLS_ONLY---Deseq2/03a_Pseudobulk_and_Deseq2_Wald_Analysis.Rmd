@@ -1,0 +1,770 @@
+---
+title: "Pseudobulk"
+output: html_document
+---
+
+#Load R Packages
+```{r}
+library(reticulate)
+library(DESeq2)
+library(scater)
+library(SingleCellExperiment)
+library(zellkonverter)
+library(data.table)
+library(tibble)
+library(dplyr)
+```
+
+
+#Load Python Directory
+```{r}
+use_python("/mnt/ufs18/home-183/cholicog/miniconda3/envs/scvi-env/bin/python")
+```
+
+#Load Python Packages
+```{r}
+ad <- import("anndata")
+```
+
+#Import Data
+```{r}
+adata <- ad$read_h5ad("/mnt/ufs18/home-183/cholicog/snRNAseq_Analysis/01_Libraries_Integration_and_Analysis---scVI/Adata_Objects/01e_AllGenes_Clustered_Endo.h5ad")
+```
+
+
+
+# Convert Anndata to SingleCell Experiment Format and Create Pseudobulk Data
+```{r}
+sce <- zellkonverter::AnnData2SCE(
+                            adata,
+                            X_name = NULL,
+                            layers = TRUE,
+                            uns = FALSE,
+                            var = TRUE,
+                            obs = TRUE,
+                            varm = FALSE,
+                            obsm = FALSE,
+                            varp = FALSE,
+                            obsp = FALSE,
+                            raw = FALSE,
+                            skip_assays = FALSE,
+                            hdf5_backed = FALSE,
+                            verbose = TRUE
+                            )
+
+# Combine 'OrigIdent' and 'Cell_Subtype' columns into a new column
+sce$OrigIdent_Cell_Subtype <- paste(sce$OrigIdent, sce$Cell_Subtype, sep="_")
+sce$OrigIdent_Cell_Subtype <- gsub(" ", "_", sce$OrigIdent_Cell_Subtype)
+
+#Export sample names
+ids <- sce$OrigIdent_Cell_Subtype
+
+# Aggregate expression values by sample ID
+pseudobulk <- aggregateAcrossCells(sce, ids, statistics="sum")
+
+# Print the pseudobulk data
+print(pseudobulk)
+```
+
+
+```{r}
+pseudobulk$Dose_Time <- paste(pseudobulk$Dose, pseudobulk$Time, sep="_")
+
+#Make copy of pseudobulk data
+pseudobulk2 <- pseudobulk
+pseudobulk2$Dose_Time <- as.factor(pseudobulk2$Dose_Time)
+
+#Export pseudobulk data as Dataframe
+pb_export <- as.data.frame(pseudobulk2@assays@data@listData$counts)
+write.table(pb_export, file = "pseudobulk_sums.txt", sep = "\t", row.names = TRUE, col.names = TRUE)
+
+#Reindex rows (Library_Celltype) and reorder columns alphabetically (Genes)
+pb_export <- tibble::rownames_to_column(pb_export, var = "Index")
+pb_export <- pb_export[ ,order(colnames(pb_export))]
+
+
+
+#Create metadata Dataframe and Trim Down
+metadata <- colData(pseudobulk2)
+metadata2 <- metadata[c('OrigIdent_Cell_Subtype', 'Dose', 'Time', 'Dose_Time','OrigIdent', 'Cell_Subtype')]
+
+
+metadata5 <- metadata2
+
+#Reindex Metadata adn reorder columns
+row.names(metadata5) <- metadata5$OrigIdent_Cell_Subtype
+metadata5 <- metadata5[order(metadata5$OrigIdent_Cell_Subtype),]
+```
+
+
+####################
+### Pericentral LSECs
+####################
+```{r}
+Celltype_Of_Interest = "Pericentral LSECs"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)  # Replace spaces with underscores
+Celltype_Of_Interest <- gsub(" ", "_", Celltype_Of_Interest)  # Replace spaces with underscores
+
+index_col <- pb_export$Index
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+pb_export_subset
+
+# Set row names
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate the row sums
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with values >= 50 in the "RowSums" column
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows based on values in the "RowSums" column
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+
+# Calculate the threshold for removing the bottom 10% of rows
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+#Drop the "RowSums" column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+pb_export_subset_50count_trimmed
+
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Cell_Subtype), ]
+metadata5_subset
+
+
+# Deseq2 Analysis
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose_Time, 
+                               tidy = TRUE)
+
+dds <- DESeq(dds)
+
+resultsNames(dds)
+colData(dds)
+
+# Print each Results
+res.2hr <- results(dds, contrast = c('Dose_Time', '30_2', '0_2'))
+write.table(res.2hr, file = paste0(Celltype_Of_Interest.NoSpace, "_2.txt"), sep = '\t', quote = FALSE)
+
+res.4hr <- results(dds, contrast = c('Dose_Time', '30_4', '0_4'))
+write.table(res.4hr, file = paste0(Celltype_Of_Interest.NoSpace, "_4.txt"), sep = '\t', quote = FALSE)
+
+res.8hr <- results(dds, contrast = c('Dose_Time', '30_8', '0_8'))
+write.table(res.8hr, file = paste0(Celltype_Of_Interest.NoSpace, "_8.txt"), sep = '\t', quote = FALSE)
+
+res.12hr <- results(dds, contrast = c('Dose_Time', '30_12', '0_12'))
+write.table(res.12hr, file = paste0(Celltype_Of_Interest.NoSpace, "_12.txt"), sep = '\t', quote = FALSE)
+
+res.18hr <- results(dds, contrast = c('Dose_Time', '30_18', '0_18'))
+write.table(res.18hr, file = paste0(Celltype_Of_Interest.NoSpace, "_18.txt"), sep = '\t', quote = FALSE)
+
+res.24hr <- results(dds, contrast = c('Dose_Time', '30_24', '0_24'))
+write.table(res.24hr, file = paste0(Celltype_Of_Interest.NoSpace, "_24.txt"), sep = '\t', quote = FALSE)
+
+res.72hr <- results(dds, contrast = c('Dose_Time', '30_72', '0_72'))
+write.table(res.72hr, file = paste0(Celltype_Of_Interest.NoSpace, "_72.txt"), sep = '\t', quote = FALSE)
+```
+
+
+
+
+####################
+### Midzonal LSECs
+####################
+```{r}
+Celltype_Of_Interest = "Midzonal LSECs"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)  # Replace spaces with underscores
+Celltype_Of_Interest <- gsub(" ", "_", Celltype_Of_Interest)  # Replace spaces with underscores
+
+index_col <- pb_export$Index
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+pb_export_subset
+
+# Set row names
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate the row sums
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with values >= 50 in the "RowSums" column
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows based on values in the "RowSums" column
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+
+# Calculate the threshold for removing the bottom 10% of rows
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+#Drop the "RowSums" column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+pb_export_subset_50count_trimmed
+
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Cell_Subtype), ]
+metadata5_subset
+
+
+# Deseq2 Analysis
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose_Time, 
+                               tidy = TRUE)
+
+dds <- DESeq(dds)
+
+resultsNames(dds)
+colData(dds)
+
+# Print each Results
+res.2hr <- results(dds, contrast = c('Dose_Time', '30_2', '0_2'))
+write.table(res.2hr, file = paste0(Celltype_Of_Interest.NoSpace, "_2.txt"), sep = '\t', quote = FALSE)
+
+res.4hr <- results(dds, contrast = c('Dose_Time', '30_4', '0_4'))
+write.table(res.4hr, file = paste0(Celltype_Of_Interest.NoSpace, "_4.txt"), sep = '\t', quote = FALSE)
+
+res.8hr <- results(dds, contrast = c('Dose_Time', '30_8', '0_8'))
+write.table(res.8hr, file = paste0(Celltype_Of_Interest.NoSpace, "_8.txt"), sep = '\t', quote = FALSE)
+
+res.12hr <- results(dds, contrast = c('Dose_Time', '30_12', '0_12'))
+write.table(res.12hr, file = paste0(Celltype_Of_Interest.NoSpace, "_12.txt"), sep = '\t', quote = FALSE)
+
+res.18hr <- results(dds, contrast = c('Dose_Time', '30_18', '0_18'))
+write.table(res.18hr, file = paste0(Celltype_Of_Interest.NoSpace, "_18.txt"), sep = '\t', quote = FALSE)
+
+res.24hr <- results(dds, contrast = c('Dose_Time', '30_24', '0_24'))
+write.table(res.24hr, file = paste0(Celltype_Of_Interest.NoSpace, "_24.txt"), sep = '\t', quote = FALSE)
+
+res.72hr <- results(dds, contrast = c('Dose_Time', '30_72', '0_72'))
+write.table(res.72hr, file = paste0(Celltype_Of_Interest.NoSpace, "_72.txt"), sep = '\t', quote = FALSE)
+```
+
+
+
+
+
+####################
+### Periportal LSECs
+####################
+```{r}
+Celltype_Of_Interest = "Periportal LSECs"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)  # Replace spaces with underscores
+Celltype_Of_Interest <- gsub(" ", "_", Celltype_Of_Interest)  # Replace spaces with underscores
+
+index_col <- pb_export$Index
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+pb_export_subset
+
+# Set row names
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate the row sums
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with values >= 50 in the "RowSums" column
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows based on values in the "RowSums" column
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+
+# Calculate the threshold for removing the bottom 10% of rows
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+#Drop the "RowSums" column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+pb_export_subset_50count_trimmed
+
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Cell_Subtype), ]
+metadata5_subset
+
+
+# Deseq2 Analysis
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose_Time, 
+                               tidy = TRUE)
+
+dds <- DESeq(dds)
+
+resultsNames(dds)
+colData(dds)
+
+# Print each Results
+res.2hr <- results(dds, contrast = c('Dose_Time', '30_2', '0_2'))
+write.table(res.2hr, file = paste0(Celltype_Of_Interest.NoSpace, "_2.txt"), sep = '\t', quote = FALSE)
+
+res.4hr <- results(dds, contrast = c('Dose_Time', '30_4', '0_4'))
+write.table(res.4hr, file = paste0(Celltype_Of_Interest.NoSpace, "_4.txt"), sep = '\t', quote = FALSE)
+
+res.8hr <- results(dds, contrast = c('Dose_Time', '30_8', '0_8'))
+write.table(res.8hr, file = paste0(Celltype_Of_Interest.NoSpace, "_8.txt"), sep = '\t', quote = FALSE)
+
+res.12hr <- results(dds, contrast = c('Dose_Time', '30_12', '0_12'))
+write.table(res.12hr, file = paste0(Celltype_Of_Interest.NoSpace, "_12.txt"), sep = '\t', quote = FALSE)
+
+res.18hr <- results(dds, contrast = c('Dose_Time', '30_18', '0_18'))
+write.table(res.18hr, file = paste0(Celltype_Of_Interest.NoSpace, "_18.txt"), sep = '\t', quote = FALSE)
+
+res.24hr <- results(dds, contrast = c('Dose_Time', '30_24', '0_24'))
+write.table(res.24hr, file = paste0(Celltype_Of_Interest.NoSpace, "_24.txt"), sep = '\t', quote = FALSE)
+
+res.72hr <- results(dds, contrast = c('Dose_Time', '30_72', '0_72'))
+write.table(res.72hr, file = paste0(Celltype_Of_Interest.NoSpace, "_72.txt"), sep = '\t', quote = FALSE)
+```
+
+
+
+
+
+####################
+### PECs
+####################
+```{r}
+Celltype_Of_Interest = "PECs"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)  # Replace spaces with underscores
+Celltype_Of_Interest <- gsub(" ", "_", Celltype_Of_Interest)  # Replace spaces with underscores
+
+index_col <- pb_export$Index
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+pb_export_subset
+
+# Set row names
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate the row sums
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with values >= 50 in the "RowSums" column
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows based on values in the "RowSums" column
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+
+# Calculate the threshold for removing the bottom 10% of rows
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+#Drop the "RowSums" column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+pb_export_subset_50count_trimmed
+
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Cell_Subtype), ]
+metadata5_subset
+
+
+# Deseq2 Analysis
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose_Time, 
+                               tidy = TRUE)
+
+dds <- DESeq(dds)
+
+resultsNames(dds)
+colData(dds)
+
+# Print each Results
+res.2hr <- results(dds, contrast = c('Dose_Time', '30_2', '0_2'))
+write.table(res.2hr, file = paste0(Celltype_Of_Interest.NoSpace, "_2.txt"), sep = '\t', quote = FALSE)
+
+res.4hr <- results(dds, contrast = c('Dose_Time', '30_4', '0_4'))
+write.table(res.4hr, file = paste0(Celltype_Of_Interest.NoSpace, "_4.txt"), sep = '\t', quote = FALSE)
+
+res.8hr <- results(dds, contrast = c('Dose_Time', '30_8', '0_8'))
+write.table(res.8hr, file = paste0(Celltype_Of_Interest.NoSpace, "_8.txt"), sep = '\t', quote = FALSE)
+
+res.12hr <- results(dds, contrast = c('Dose_Time', '30_12', '0_12'))
+write.table(res.12hr, file = paste0(Celltype_Of_Interest.NoSpace, "_12.txt"), sep = '\t', quote = FALSE)
+
+res.18hr <- results(dds, contrast = c('Dose_Time', '30_18', '0_18'))
+write.table(res.18hr, file = paste0(Celltype_Of_Interest.NoSpace, "_18.txt"), sep = '\t', quote = FALSE)
+
+res.24hr <- results(dds, contrast = c('Dose_Time', '30_24', '0_24'))
+write.table(res.24hr, file = paste0(Celltype_Of_Interest.NoSpace, "_24.txt"), sep = '\t', quote = FALSE)
+
+res.72hr <- results(dds, contrast = c('Dose_Time', '30_72', '0_72'))
+write.table(res.72hr, file = paste0(Celltype_Of_Interest.NoSpace, "_72.txt"), sep = '\t', quote = FALSE)
+```
+
+
+
+
+####################
+### LyECs
+####################
+```{r}
+Celltype_Of_Interest = "LyECs"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)  # Replace spaces with underscores
+Celltype_Of_Interest <- gsub(" ", "_", Celltype_Of_Interest)  # Replace spaces with underscores
+
+index_col <- pb_export$Index
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+pb_export_subset
+
+# Set row names
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate the row sums
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with values >= 50 in the "RowSums" column
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows based on values in the "RowSums" column
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+
+# Calculate the threshold for removing the bottom 10% of rows
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+#Drop the "RowSums" column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+pb_export_subset_50count_trimmed
+
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Cell_Subtype), ]
+metadata5_subset
+
+
+# Deseq2 Analysis
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose_Time, 
+                               tidy = TRUE)
+
+dds <- DESeq(dds)
+
+resultsNames(dds)
+colData(dds)
+
+# Print each Results
+res.2hr <- results(dds, contrast = c('Dose_Time', '30_2', '0_2'))
+write.table(res.2hr, file = paste0(Celltype_Of_Interest.NoSpace, "_2.txt"), sep = '\t', quote = FALSE)
+
+res.4hr <- results(dds, contrast = c('Dose_Time', '30_4', '0_4'))
+write.table(res.4hr, file = paste0(Celltype_Of_Interest.NoSpace, "_4.txt"), sep = '\t', quote = FALSE)
+
+res.8hr <- results(dds, contrast = c('Dose_Time', '30_8', '0_8'))
+write.table(res.8hr, file = paste0(Celltype_Of_Interest.NoSpace, "_8.txt"), sep = '\t', quote = FALSE)
+
+res.12hr <- results(dds, contrast = c('Dose_Time', '30_12', '0_12'))
+write.table(res.12hr, file = paste0(Celltype_Of_Interest.NoSpace, "_12.txt"), sep = '\t', quote = FALSE)
+
+res.18hr <- results(dds, contrast = c('Dose_Time', '30_18', '0_18'))
+write.table(res.18hr, file = paste0(Celltype_Of_Interest.NoSpace, "_18.txt"), sep = '\t', quote = FALSE)
+
+res.24hr <- results(dds, contrast = c('Dose_Time', '30_24', '0_24'))
+write.table(res.24hr, file = paste0(Celltype_Of_Interest.NoSpace, "_24.txt"), sep = '\t', quote = FALSE)
+
+res.72hr <- results(dds, contrast = c('Dose_Time', '30_72', '0_72'))
+write.table(res.72hr, file = paste0(Celltype_Of_Interest.NoSpace, "_72.txt"), sep = '\t', quote = FALSE)
+```
+
+
+
+
+####################
+### Periportal VECs
+####################
+```{r}
+Celltype_Of_Interest = "Periportal VECs"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)  # Replace spaces with underscores
+Celltype_Of_Interest <- gsub(" ", "_", Celltype_Of_Interest)  # Replace spaces with underscores
+
+index_col <- pb_export$Index
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+pb_export_subset
+
+# Set row names
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate the row sums
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with values >= 50 in the "RowSums" column
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows based on values in the "RowSums" column
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+
+# Calculate the threshold for removing the bottom 10% of rows
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+#Drop the "RowSums" column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+pb_export_subset_50count_trimmed
+
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Cell_Subtype), ]
+metadata5_subset
+
+
+# Deseq2 Analysis
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose_Time, 
+                               tidy = TRUE)
+
+dds <- DESeq(dds)
+
+resultsNames(dds)
+colData(dds)
+
+# Print each Results
+res.2hr <- results(dds, contrast = c('Dose_Time', '30_2', '0_2'))
+write.table(res.2hr, file = paste0(Celltype_Of_Interest.NoSpace, "_2.txt"), sep = '\t', quote = FALSE)
+
+res.4hr <- results(dds, contrast = c('Dose_Time', '30_4', '0_4'))
+write.table(res.4hr, file = paste0(Celltype_Of_Interest.NoSpace, "_4.txt"), sep = '\t', quote = FALSE)
+
+res.8hr <- results(dds, contrast = c('Dose_Time', '30_8', '0_8'))
+write.table(res.8hr, file = paste0(Celltype_Of_Interest.NoSpace, "_8.txt"), sep = '\t', quote = FALSE)
+
+res.12hr <- results(dds, contrast = c('Dose_Time', '30_12', '0_12'))
+write.table(res.12hr, file = paste0(Celltype_Of_Interest.NoSpace, "_12.txt"), sep = '\t', quote = FALSE)
+
+res.18hr <- results(dds, contrast = c('Dose_Time', '30_18', '0_18'))
+write.table(res.18hr, file = paste0(Celltype_Of_Interest.NoSpace, "_18.txt"), sep = '\t', quote = FALSE)
+
+res.24hr <- results(dds, contrast = c('Dose_Time', '30_24', '0_24'))
+write.table(res.24hr, file = paste0(Celltype_Of_Interest.NoSpace, "_24.txt"), sep = '\t', quote = FALSE)
+
+res.72hr <- results(dds, contrast = c('Dose_Time', '30_72', '0_72'))
+write.table(res.72hr, file = paste0(Celltype_Of_Interest.NoSpace, "_72.txt"), sep = '\t', quote = FALSE)
+```
+
+
+
+
+####################
+### Unknown
+####################
+```{r}
+Celltype_Of_Interest = "Unknown"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)  # Replace spaces with underscores
+Celltype_Of_Interest <- gsub(" ", "_", Celltype_Of_Interest)  # Replace spaces with underscores
+
+index_col <- pb_export$Index
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+pb_export_subset
+
+# Set row names
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate the row sums
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with values >= 50 in the "RowSums" column
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows based on values in the "RowSums" column
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+
+# Calculate the threshold for removing the bottom 10% of rows
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+#Drop the "RowSums" column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+pb_export_subset_50count_trimmed
+
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Cell_Subtype), ]
+metadata5_subset
+
+
+# Deseq2 Analysis
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose_Time, 
+                               tidy = TRUE)
+
+dds <- DESeq(dds)
+
+resultsNames(dds)
+colData(dds)
+
+# Print each Results
+res.2hr <- results(dds, contrast = c('Dose_Time', '30_2', '0_2'))
+write.table(res.2hr, file = paste0(Celltype_Of_Interest.NoSpace, "_2.txt"), sep = '\t', quote = FALSE)
+
+res.4hr <- results(dds, contrast = c('Dose_Time', '30_4', '0_4'))
+write.table(res.4hr, file = paste0(Celltype_Of_Interest.NoSpace, "_4.txt"), sep = '\t', quote = FALSE)
+
+res.8hr <- results(dds, contrast = c('Dose_Time', '30_8', '0_8'))
+write.table(res.8hr, file = paste0(Celltype_Of_Interest.NoSpace, "_8.txt"), sep = '\t', quote = FALSE)
+
+res.12hr <- results(dds, contrast = c('Dose_Time', '30_12', '0_12'))
+write.table(res.12hr, file = paste0(Celltype_Of_Interest.NoSpace, "_12.txt"), sep = '\t', quote = FALSE)
+
+res.18hr <- results(dds, contrast = c('Dose_Time', '30_18', '0_18'))
+write.table(res.18hr, file = paste0(Celltype_Of_Interest.NoSpace, "_18.txt"), sep = '\t', quote = FALSE)
+
+res.24hr <- results(dds, contrast = c('Dose_Time', '30_24', '0_24'))
+write.table(res.24hr, file = paste0(Celltype_Of_Interest.NoSpace, "_24.txt"), sep = '\t', quote = FALSE)
+
+res.72hr <- results(dds, contrast = c('Dose_Time', '30_72', '0_72'))
+write.table(res.72hr, file = paste0(Celltype_Of_Interest.NoSpace, "_72.txt"), sep = '\t', quote = FALSE)
+```
+
+
+
+
+
+####################
+### Pericentral VECs
+####################
+```{r}
+Celltype_Of_Interest = "Pericentral VECs"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)  # Replace spaces with underscores
+Celltype_Of_Interest <- gsub(" ", "_", Celltype_Of_Interest)  # Replace spaces with underscores
+
+index_col <- pb_export$Index
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+pb_export_subset
+
+# Set row names
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate the row sums
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with values >= 50 in the "RowSums" column
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows based on values in the "RowSums" column
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+
+# Calculate the threshold for removing the bottom 10% of rows
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+#Drop the "RowSums" column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+pb_export_subset_50count_trimmed
+
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Cell_Subtype), ]
+metadata5_subset
+
+
+# Deseq2 Analysis
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose_Time, 
+                               tidy = TRUE)
+
+dds <- DESeq(dds)
+
+resultsNames(dds)
+colData(dds)
+
+# Print each Results
+res.2hr <- results(dds, contrast = c('Dose_Time', '30_2', '0_2'))
+write.table(res.2hr, file = paste0(Celltype_Of_Interest.NoSpace, "_2.txt"), sep = '\t', quote = FALSE)
+
+res.4hr <- results(dds, contrast = c('Dose_Time', '30_4', '0_4'))
+write.table(res.4hr, file = paste0(Celltype_Of_Interest.NoSpace, "_4.txt"), sep = '\t', quote = FALSE)
+
+res.8hr <- results(dds, contrast = c('Dose_Time', '30_8', '0_8'))
+write.table(res.8hr, file = paste0(Celltype_Of_Interest.NoSpace, "_8.txt"), sep = '\t', quote = FALSE)
+
+res.12hr <- results(dds, contrast = c('Dose_Time', '30_12', '0_12'))
+write.table(res.12hr, file = paste0(Celltype_Of_Interest.NoSpace, "_12.txt"), sep = '\t', quote = FALSE)
+
+res.18hr <- results(dds, contrast = c('Dose_Time', '30_18', '0_18'))
+write.table(res.18hr, file = paste0(Celltype_Of_Interest.NoSpace, "_18.txt"), sep = '\t', quote = FALSE)
+
+res.24hr <- results(dds, contrast = c('Dose_Time', '30_24', '0_24'))
+write.table(res.24hr, file = paste0(Celltype_Of_Interest.NoSpace, "_24.txt"), sep = '\t', quote = FALSE)
+
+res.72hr <- results(dds, contrast = c('Dose_Time', '30_72', '0_72'))
+write.table(res.72hr, file = paste0(Celltype_Of_Interest.NoSpace, "_72.txt"), sep = '\t', quote = FALSE)
+```

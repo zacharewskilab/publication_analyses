@@ -1,0 +1,1566 @@
+---
+title: "Time-Course Cell-Cell Interaction Analysis"
+output: html_notebook
+---
+
+# Load Packages
+```{r}
+suppressPackageStartupMessages({
+  library(CellChat)
+  library(patchwork)
+  library(Matrix)
+  library(NMF)
+  library(ggalluvial)
+  library(ComplexHeatmap)
+  library(wordcloud)
+  library(gridExtra)
+  library(Seurat)
+ }) 
+```
+
+
+# Set Working Directory
+```{r}
+data.dir <- '/mnt/home/cholicog/snRNAseq_Analysis/06_Cell-to-cell_communication---CellChat/Data/'
+output.dir <- '/mnt/home/cholicog/snRNAseq_Analysis/06_Cell-to-cell_communication---CellChat/Output'
+
+#Work out of Scratch Space 
+#data.dir <- '/mnt/gs21/scratch/cholicog/Data/'
+#output.dir <- '/mnt/gs21/scratch/cholicog/Output/'
+```
+
+
+# Reimport Data
+```{r}
+setwd(data.dir)
+object.list <- list()
+dg <- c("0_2", "30_2", "0_4", "30_4", "0_8", "30_8", "0_12", "30_12", "0_18", "30_18", "0_24", "30_24", "0_72", "30_72")
+for (f in dg){
+  fname = paste0('cellchat_', f, '.RData')
+  print(fname)
+  cc <- readRDS(fname)
+  cc <- netAnalysis_computeCentrality(cc)
+  object.list[[paste0('D', f)]] <- cc
+}
+```
+
+
+
+
+
+#Break up Datasets by Treatment Groups
+```{r fig.width = 10, fig.height = 2}
+cellchat <- mergeCellChat(object.list, add.names = names(object.list)) # All datasets
+
+
+cellchat.2 <- mergeCellChat(object.list[c(1,2)], add.names = names(object.list[c(1,2)])) #2 hours Veh vs 30 ug/kg
+cellchat.4 <- mergeCellChat(object.list[c(3,4)], add.names = names(object.list[c(3,4)])) #4 hours Veh vs 30 ug/kg
+cellchat.8 <- mergeCellChat(object.list[c(5,6)], add.names = names(object.list[c(5,6)])) #8 hours Veh vs 30 ug/kg
+cellchat.12 <- mergeCellChat(object.list[c(7,8)], add.names = names(object.list[c(7,8)])) #12 hours Veh vs 30 ug/kg
+cellchat.18 <- mergeCellChat(object.list[c(9,10)], add.names = names(object.list[c(9,10)])) #18 hours Veh vs 30 ug/kg
+cellchat.24 <- mergeCellChat(object.list[c(11,12)], add.names = names(object.list[c(11,12)])) #24 hours Veh vs 30 ug/kg
+cellchat.72 <- mergeCellChat(object.list[c(13,14)], add.names = names(object.list[c(13,14)])) #72 hours Veh vs 30 ug/kg
+
+cellchat.2.V <- object.list$D0_2 #2 hours Veh
+cellchat.2.T <- object.list$D30_2 #2 hours 30 ug/kg TCDD
+cellchat.4.V <- object.list$D0_4 #4 hours Veh
+cellchat.4.T <- object.list$D30_4 #4 hours 30 ug/kg TCDD
+cellchat.8.V <- object.list$D0_8 #8 hours Veh
+cellchat.8.T <- object.list$D30_8 #8 hours 30 ug/kg TCDD
+cellchat.12.V <- object.list$D0_12 #12 hours Veh
+cellchat.12.T <- object.list$D30_12 #12 hours 30 ug/kg TCDD
+cellchat.18.V <- object.list$D0_18 #18 hours Veh
+cellchat.18.T <- object.list$D30_18 #18 hours 30 ug/kg TCDD
+cellchat.24.V <- object.list$D0_24 #24 hours Veh
+cellchat.24.T <- object.list$D30_24 #24 hours 30 ug/kg TCDD
+cellchat.72.V <- object.list$D0_72 #72 hours Veh
+cellchat.72.T <- object.list$D30_72 #72 hours 30 ug/kg TCDD
+
+```
+
+# ################################################################################
+# ################################################################################
+# ################################################################################
+#Total number of interactions in each dataset (Dose_Time)
+```{r}
+#### Make Output Directory
+# Define the subdirectory you want to check for
+subdirectory <- 'a_Total_Inferred_Interactions'
+
+# Create the full path to the subdirectory
+subdirectory.path <- file.path(output.dir, subdirectory, "/")
+
+# Check if the subdirectory exists
+if (!file.exists(subdirectory.path)) {
+  # If it doesn't exist, create it
+  dir.create(subdirectory.path)
+  cat("Subdirectory created:", subdirectory.path, "\n")
+} else {
+  cat("Subdirectory already exists:", subdirectory.path, "\n")
+}
+
+##########
+
+gg1 <- compareInteractions(cellchat, show.legend = F, group = c(1:14))
+gg2 <- compareInteractions(cellchat, show.legend = F, group = c(1:14), measure = "weight")
+
+
+# Save the plot as PDF
+cairo_pdf(filename = paste0(subdirectory.path, "Total_Inferred_Interactions.pdf"), 
+          height = 5, width = 8)
+print(gg1)  
+dev.off()
+
+cairo_pdf(filename = paste0(subdirectory.path,  "Total_Inferred_Interactions-WEIGHTS.pdf"), 
+          height = 5, width = 8)
+print(gg2)  
+dev.off()
+
+```
+
+# ################################################################################
+# ################################################################################
+# ################################################################################
+#Differential number of interactions or interaction strength among different cell populations
+#Net plots
+I don't trust the strength interaction nets so I won't use these further
+```{r}
+#### Make Output Directory
+# Define the subdirectory you want to check for
+subdirectory <- 'b_Differential_Number_Of_Interactions_And_Strength'
+
+# Create the full path to the subdirectory
+subdirectory.path <- file.path(output.dir, subdirectory, "/")
+
+# Check if the subdirectory exists
+if (!file.exists(subdirectory.path)) {
+  # If it doesn't exist, create it
+  dir.create(subdirectory.path)
+  cat("Subdirectory created:", subdirectory.path, "\n")
+} else {
+  cat("Subdirectory already exists:", subdirectory.path, "\n")
+}
+
+##########
+
+timepoints <- c(2, 4, 8, 12, 18, 24, 72)  # List of timepoints
+
+#theres a weird glitch in Cellchat ordering colors, had to visually double check color order in plots and arrange these colors.
+colors = c('#57db94','#7957db','#dbae57','#db5f57','#b9db57','#69db57','#db579e','#c957db','#5784db','#57d3db')
+
+
+for (tp in timepoints) {
+  # Get the variable name for the current timepoint
+  var_name <- paste0("cellchat.", tp)
+  par(mfrow = c(1, 2), xpd = TRUE)
+  
+  # Generate plot with title
+  gg1 <- netVisual_diffInteraction(get(var_name),
+                                   weight.scale = T, 
+                                   color.use = colors,
+                                   shape = 'circle',
+                                   title.name = paste0(tp, "hr - Differential Interactions")) 
+  gg2 <- netVisual_diffInteraction(get(var_name), 
+                                  weight.scale = T, 
+                                  measure = "weight",
+                                  color.use = colors,
+                                  title.name = paste0(tp, "hr - Interaction Weight"))
+  
+  # Save the plot as PDF
+  cairo_pdf(filename = paste0(subdirectory.path, tp, " hr - Differential_Number_Of_Interactions_And_Strength.pdf"), 
+            height = 5, width = 8)
+  print(gg1)  
+  print(gg2)
+  dev.off()
+}
+```
+
+# ################################################################################
+# ################################################################################
+# ################################################################################
+#This creates a Custom netVisual_heatmap Function
+This code was highly customized for Gio's TC Dataset. For example, the order of the Celltype have be rearrange by the Celltype prevalence in the TC dataset. 
+```{r}
+#### Make Output Directory
+# Define the subdirectory you want to check for
+subdirectory <- 'c_Differential_Number_Of_Interactions_And_Strength---Heatmaps'
+
+# Create the full path to the subdirectory
+subdirectory.path <- file.path(output.dir, subdirectory, "/")
+
+# Check if the subdirectory exists
+if (!file.exists(subdirectory.path)) {
+  # If it doesn't exist, create it
+  dir.create(subdirectory.path)
+  cat("Subdirectory created:", subdirectory.path, "\n")
+} else {
+  cat("Subdirectory already exists:", subdirectory.path, "\n")
+}
+
+##########
+
+colors.diff <- c('#db5f57', '#dbae57', '#b9db57', '#69db57', '#57db94', '#57d3db', '#5784db', '#7957db', '#c957db', '#db579e')
+desired_order <- c('Hepatocytes', 'ECs', 'HSCs', 'Macrophages', 'B Cells', 'T Cells', 'PFs', 'Cholangiocytes', 'pDCs', 'Neutrophils')
+color.heatmap.use = colorRamp3(c(-10, 0, 10), c("#2166ac", "#f7f7f7", "#b2182b"))
+
+time_points <- c(2, 4, 8, 12, 18, 24, 72)
+
+font.size.title = 10
+font.size = 7
+
+for (time_point in time_points) {
+  obj.V <- paste0("cellchat.", time_point, ".V")
+  obj.T <- paste0("cellchat.", time_point, ".T")
+  
+  obj1 <- eval(parse(text = obj.V))@net$count
+  obj2 <- eval(parse(text = obj.T))@net$count
+  
+  obj1 <- obj1[desired_order, desired_order]
+  obj2 <- obj2[desired_order, desired_order]
+  
+  net.diff <- obj2 - obj1
+  net.diff.full <- abs(net.diff)
+  
+  # Create a data frame from net.diff
+  net_diff_df <- as.data.frame(net.diff)
+  obj1_df <- as.data.frame(obj1)
+  obj2_df <- as.data.frame(obj2)
+
+  # Export net.diff as tab-delimited file
+  write.table(net_diff_df, file = paste0(subdirectory.path, time_point, " hr - net.diff.txt"), sep = "\t", col.names = TRUE, quote = FALSE)
+  write.table(obj1_df, file = paste0(subdirectory.path, time_point, " hr - net.count.veh.txt"), sep = "\t", col.names = TRUE, quote = FALSE)
+  write.table(obj2_df, file = paste0(subdirectory.path, time_point, " hr - net.count.tcdd.txt"), sep = "\t", col.names = TRUE, quote = FALSE)
+
+  df <- data.frame(group = colnames(net.diff))
+  rownames(df) <- colnames(net.diff)
+  color.use <- colors.diff
+  names(color.use) <- colnames(net.diff)
+  
+  col_annotation <- HeatmapAnnotation(
+    df = df,
+    col = list(group = color.use),
+    which = "column",
+    show_legend = FALSE,
+    show_annotation_name = FALSE,
+    simple_anno_size = grid::unit(0.2, "cm")
+  )
+  
+  row_annotation <- HeatmapAnnotation(
+    df = df,
+    col = list(group = color.use),
+    which = "row",
+    show_legend = FALSE,
+    show_annotation_name = FALSE,
+    simple_anno_size = grid::unit(0.2, "cm")
+  )
+  
+  ha1 = rowAnnotation(S1 = anno_barplot(rowSums(net.diff.full), 
+                                        border = TRUE,
+                                        gp = gpar(fill = colors.diff, col=colors.diff), 
+                                        show_annotation_name = FALSE, 
+                                           ylim = c(0,50), 
+                                           axis_param = (labels(0,25,50)) 
+                                       
+                      ))
+  
+  ha2 = HeatmapAnnotation(S2 = anno_barplot(colSums(net.diff.full), 
+                                           border = TRUE,
+                                           gp = gpar(fill = colors.diff, col=colors.diff), 
+                                           show_annotation_name = FALSE, 
+                                           ylim = c(0,50), 
+                                           axis_param = (labels(0,25,50))
+                                           )
+                          )
+
+  # Define the dimensions of the heatmap
+  heatmap_width <- 4  # Width in inches
+  heatmap_height <- 4  # Height in inches
+  
+  min_value <- -10
+  max_value <- 10
+  
+  # Create a square output device
+  pdf(paste0(subdirectory.path, time_point, " hr - Differential_Number_Of_Interactions - Heatmap.pdf"), width = heatmap_width, height = heatmap_height)
+
+  ht1 <- Heatmap(
+    net.diff,
+    col = color.heatmap.use,
+    na_col = "white",
+    name = paste(time_point,"Differential Number of Interactions"),
+    bottom_annotation = col_annotation,
+    left_annotation = row_annotation,
+    top_annotation = ha2, 
+    right_annotation = ha1,
+    cluster_rows = FALSE,
+    cluster_columns = FALSE,
+    row_names_side = "left",
+    row_names_rot = 0,
+    row_names_gp = gpar(fontsize = font.size),
+    column_names_gp = gpar(fontsize = font.size),
+    column_title = "Targets (Receiver)",
+    column_title_gp = gpar(fontsize = font.size.title),
+    column_title_side = "bottom",
+    column_names_rot = 90,
+    row_title = "Sources (Sender)",
+    row_title_gp = gpar(fontsize = font.size.title),
+    row_title_rot = 90,
+    show_heatmap_legend = FALSE,
+    heatmap_legend_param = list(
+      title_gp = gpar(fontsize = 8, fontface = "plain"),
+      title_position = "leftcenter-rot",
+      border = NA,
+      legend_height = unit(20, "mm"),
+      labels_gp = gpar(fontsize = 8),
+      grid_width = unit(2, "mm"),
+      at = c(min_value, 0, max_value)
+    )
+  )
+  
+  draw(ht1)
+  
+  dev.off()
+}
+
+```
+
+
+# ################################################################################
+# ################################################################################
+# ################################################################################
+#Compare the major sources and targets in 2D space
+Comparing the outgoing and incoming interaction strength in 2D space allows ready identification of the cell populations with significant changes in sending or receiving signals between different datasets.
+```{r}
+#### Make Output Directory
+# Define the subdirectory you want to check for
+subdirectory <- 'd_Major_Sources_and_Targets_DotPlots'
+
+# Create the full path to the subdirectory
+subdirectory.path <- file.path(output.dir, subdirectory, "/")
+
+# Check if the subdirectory exists
+if (!file.exists(subdirectory.path)) {
+  # If it doesn't exist, create it
+  dir.create(subdirectory.path)
+  cat("Subdirectory created:", subdirectory.path, "\n")
+} else {
+  cat("Subdirectory already exists:", subdirectory.path, "\n")
+}
+
+##########
+
+colors.diff <- c('#db5f57', '#dbae57', '#b9db57', '#69db57', '#57db94', '#57d3db', '#5784db', '#7957db', '#c957db', '#db579e')
+desired_order <- c('Hepatocytes', 'ECs', 'HSCs', 'Macrophages', 'B Cells', 'T Cells', 'PFs', 'Cholangiocytes', 'pDCs', 'Neutrophils')
+
+
+netAnalysis_signalingRole_scatter <- function(object, 
+                                              signaling = NULL, 
+                                              color.use = NULL, 
+                                              slot.name = "netP", 
+                                              group = NULL, 
+                                              weight.MinMax = NULL, 
+                                              dot.size = c(2, 6), 
+                                              point.shape = c(21, 22, 24, 23, 25, 8, 3), 
+                                              label.size = 3, 
+                                              dot.alpha = 0.6,
+                                              x.measure = "outdeg", 
+                                              y.measure = "indeg",
+                                              xlabel = "Outgoing interaction strength", 
+                                              ylabel = "Incoming interaction strength", 
+                                              title = NULL,
+                                              font.size = 10,
+                                              font.size.title = 10, 
+                                              do.label = T, 
+                                              show.legend = T, 
+                                              show.axes = T) {
+  if (length(slot(object, slot.name)$centr) == 0) {
+    stop("Please run `netAnalysis_computeCentrality` to compute the network centrality scores! ")
+  }
+  if (sum(c(x.measure, y.measure) %in% names(slot(object, slot.name)$centr[[1]])) !=2) {
+    stop(paste0("`x.measure, y.measure` should be one of ", paste(names(slot(object, slot.name)$centr[[1]]),collapse=", "), '\n', "`outdeg_unweighted` is only supported for version >= 1.1.2"))
+  }
+  centr <- slot(object, slot.name)$centr
+  outgoing <- matrix(0, nrow = nlevels(object@idents), ncol = length(centr))
+  incoming <- matrix(0, nrow = nlevels(object@idents), ncol = length(centr))
+  dimnames(outgoing) <- list(levels(object@idents), names(centr))
+  dimnames(incoming) <- dimnames(outgoing)
+  #outgoing <- outgoing[desired_order, ]
+  #incoming <- incoming[desired_order, ]
+  
+  for (i in 1:length(centr)) {
+    outgoing[,i] <- centr[[i]][[x.measure]]
+    incoming[,i] <- centr[[i]][[y.measure]]
+  }
+  if (is.null(signaling)) {
+    message("Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways")
+  } else {
+    message("Signaling role analysis on the cell-cell communication network from user's input")
+    signaling <- signaling[signaling %in% object@netP$pathways]
+    if (length(signaling) == 0) {
+      stop('There is no significant communication for the input signaling. All the significant signaling are shown in `object@netP$pathways`')
+    }
+    outgoing <- outgoing[ , signaling, drop = FALSE]
+    incoming <- incoming[ , signaling, drop = FALSE]
+  }
+  outgoing.cells <- rowSums(outgoing)
+  incoming.cells <- rowSums(incoming)
+
+  num.link <- aggregateNet(object, signaling = signaling, return.object = FALSE, remove.isolate = FALSE)$count
+  num.link <- rowSums(num.link) + colSums(num.link)-diag(num.link)
+  num.link <- as.matrix(num.link)
+  #num.link <- num.link[desired_order,]
+  df <- data.frame(x = outgoing.cells, y = incoming.cells, labels = names(incoming.cells),
+                   Count = num.link)
+  df <- df[match(desired_order, rownames(df)), , drop = FALSE]
+  df$labels <- factor(df$labels, levels = desired_order)
+  if (!is.null(group)) {
+    df$Group <- group
+  }
+  if (is.null(color.use)) {
+    #color.use <- scPalette(nlevels(object@idents))
+    color.use <- colors.diff
+  }
+  if (!is.null(group)) {
+    gg <- ggplot(data = df, aes(x, y)) +
+      geom_point(aes(size = Count, colour = labels, fill = labels, shape = Group))
+  } else {
+    gg <- ggplot(data = df, aes(x, y)) +
+      geom_point(aes(size = Count, colour = labels, fill = labels))
+  }
+
+  gg <- gg + CellChat_theme_opts() +
+    theme(text = element_text(size = font.size), legend.key.height = grid::unit(0.15, "in"))+
+    # guides(colour = guide_legend(override.aes = list(size = 3)))+
+    labs(title = title, x = xlabel, y = ylabel) + theme(plot.title = element_text(size= font.size.title, face="plain"))+
+    # theme(axis.text.x = element_blank(),axis.text.y = element_blank(),axis.ticks = element_blank()) +
+    theme(axis.line.x = element_line(size = 0.25), axis.line.y = element_line(size = 0.25))
+  gg <- gg + scale_fill_manual(values = ggplot2::alpha(color.use, alpha = dot.alpha), drop = FALSE) + guides(fill=FALSE)
+  gg <- gg + scale_colour_manual(values = color.use, drop = FALSE) + guides(colour=FALSE)
+  # gg <- gg + scale_colour_manual(values = ggplot2::alpha(color.use, alpha = dot.alpha), drop = FALSE) + guides(colour=FALSE)
+  # gg <- gg + scale_shape_manual(values = point.shape[1:length(prob)])
+  if (!is.null(group)) {
+    gg <- gg + scale_shape_manual(values = point.shape[1:length(unique(df$Group))])
+  }
+  if (is.null(weight.MinMax)) {
+    gg <- gg + scale_size_continuous(range = dot.size)
+  } else {
+    gg <- gg + scale_size_continuous(limits = weight.MinMax, range = dot.size)
+  }
+  if (do.label) {
+    gg <- gg + ggrepel::geom_text_repel(mapping = aes(label = labels, colour = labels), size = label.size, show.legend = F,segment.size = 0.2, segment.alpha = 0.5)
+  }
+
+  if (!show.legend) {
+    gg <- gg + theme(legend.position = "none")
+  }
+
+  if (!show.axes) {
+    gg <- gg + theme_void()
+  }
+
+  gg
+
+}
+
+# Calculate num.link for all objects
+num.link <- sapply(object.list, function(x) {rowSums(x@net$count) + colSums(x@net$count)-diag(x@net$count)})
+num.link <- num.link[desired_order,]
+
+weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the different datasets
+gg <- list()
+
+# Define the dimensions of the figure
+width <- 4  # Width in inches
+height <- 3.7  # Height in inches
+  
+  
+# Create scatter plots for each object and save as PDF
+for (i in 1:length(object.list)) {
+  gg[[i]] <- netAnalysis_signalingRole_scatter(object.list[[i]], 
+                                               title = names(object.list)[i], 
+                                               weight.MinMax = weight.MinMax)
+  
+  # Define the PDF file path and name
+  pdf_file <- paste0(subdirectory.path,"scatter_plot_", names(object.list)[i], ".pdf")
+  
+  # Save the plot as a PDF
+  pdf(pdf_file, width = width, height = height)
+  print(gg[[i]])
+  dev.off()
+}
+```
+
+
+
+# ################################################################################
+# ################################################################################
+# ################################################################################
+#Custom RankNet Function
+We can identify the conserved and context-specific signaling pathways by simply comparing the information flow for each signaling pathway, which is defined by the sum of communication probability among all pairs of cell groups in the inferred network (i.e., the total weights in the network).
+
+This bar graph can be plotted in a stacked mode or not. Significant signaling pathways were ranked based on differences in the overall information flow within the inferred networks between NL and LS skin. The top signaling pathways colored red are enriched in NL skin, and these colored green were enriched in the LS skin.
+```{r}
+#### Make Output Directory
+# Define the subdirectory you want to check for
+subdirectory <- 'e_RankNet_Stack_Barplots'
+
+# Create the full path to the subdirectory
+subdirectory.path <- file.path(output.dir, subdirectory, "/")
+
+# Check if the subdirectory exists
+if (!file.exists(subdirectory.path)) {
+  # If it doesn't exist, create it
+  dir.create(subdirectory.path)
+  cat("Subdirectory created:", subdirectory.path, "\n")
+} else {
+  cat("Subdirectory already exists:", subdirectory.path, "\n")
+}
+
+##########
+
+
+hours <- c(2, 4, 8, 12, 18, 24, 72)
+
+for (hr in hours) {
+  object = get(paste0("cellchat.", hr))
+  slot.name = "netP"
+  measure = "count"
+  mode = "comparison"
+  comparison = c(1,2)
+  cutoff.pvalue = 0.05
+  tol = 0.05
+  thresh = 0.05
+  object.names <- names(methods::slot(object, slot.name))
+  
+  prob.list <- list()
+  pSum <- list()
+  pSum.original <- list()
+  pair.name <- list()
+  idx <- list()
+  pSum.original.all <- c()
+  object.names.comparison <- c()
+  
+  #object.list <- methods::slot(object, slot.name)[[comparison[i]]]
+  #prob <- object.list$prob
+  #prob[object.list$pval > thresh] <- 0
+  #prob <- 1*(prob > 0)
+  #prob.list[[i]] <- prob
+  #pSum.original[[i]] <- apply(prob, 3, sum)
+  
+  for (i in 1:length(comparison)) {
+    object.list <- methods::slot(object, slot.name)[[comparison[i]]]
+    prob <- object.list$prob
+    prob[object.list$pval > thresh] <- 0
+    if (measure == "count") {
+      prob <- 1*(prob > 0)
+    }
+    prob.list[[i]] <- prob
+  
+    pSum.original[[i]] <- apply(prob, 3, sum)
+    if (measure == "weight") {
+      pSum[[i]] <- -1/log(pSum.original[[i]])
+      pSum[[i]][is.na(pSum[[i]])] <- 0
+      idx[[i]] <- which(is.infinite(pSum[[i]]) | pSum[[i]] < 0)
+      pSum.original.all <- c(pSum.original.all, pSum.original[[i]][idx[[i]]])
+    } else if (measure == "count") {
+      pSum[[i]] <- pSum.original[[i]]
+    }
+    
+    pair.name[[i]] <- names(pSum.original[[i]])
+    object.names.comparison <- c(object.names.comparison, object.names[comparison[i]])
+  }
+  
+  
+  pair.name.all <- as.character(unique(unlist(pair.name)))
+  df <- list()
+  for (i in 1:length(comparison)) {
+    df[[i]] <- data.frame(name = pair.name.all, contribution = 0, contribution.scaled = 0, group = object.names[comparison[i]], row.names = pair.name.all)
+    df[[i]][pair.name[[i]],3] <- pSum[[i]]
+    df[[i]][pair.name[[i]],2] <- pSum.original[[i]]
+  }
+  
+  
+  
+  figure.height <- length(df[[1]]$name)/6
+  figure.width <- 4
+  
+  ######
+  
+  
+    gg <- rankNet(get(paste0("cellchat.", hr)),
+                  mode = "comparison",
+                  stacked = TRUE,
+                  do.stat = TRUE,
+                  measure = "count")
+    
+    cairo_pdf(filename = paste0(subdirectory.path, hr, " hr - RankNet.pdf"), height = figure.height, width = figure.width)
+    print(gg)
+    dev.off()
+}
+```
+
+
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# Outgoing-Incoming-All Signaling Patterns
+```{r}
+colors.diff <- c('#db5f57', '#dbae57', '#b9db57', '#69db57', '#57db94', '#57d3db', '#5784db', '#7957db', '#c957db', '#db579e')
+desired_order <- c('Hepatocytes', 'ECs', 'HSCs', 'Macrophages', 'B Cells', 'T Cells', 'PFs', 'Cholangiocytes', 'pDCs', 'Neutrophils')
+time_points <- c(2, 4, 8, 12, 18, 24, 72)
+
+
+netAnalysis_signalingRole_heatmap <- function(object, 
+                                              signaling = NULL, 
+                                              pattern = c("outgoing", "incoming","all"), 
+                                              slot.name = "netP",
+                                              color.use = NULL, 
+                                              color.heatmap = "BuGn",
+                                              title = NULL, 
+                                              width = 10, height = 8, 
+                                              font.size = 8, 
+                                              font.size.title = 10, 
+                                              cluster.rows = FALSE, 
+                                              cluster.cols = FALSE){
+  pattern <- match.arg(pattern)
+  if (length(slot(object, slot.name)$centr) == 0) {
+    stop("Please run `netAnalysis_computeCentrality` to compute the network centrality scores! ")
+  }
+  centr <- slot(object, slot.name)$centr
+  outgoing <- matrix(0, nrow = nlevels(object@idents), ncol = length(centr))
+  incoming <- matrix(0, nrow = nlevels(object@idents), ncol = length(centr))
+  dimnames(outgoing) <- list(levels(object@idents), names(centr))
+  dimnames(incoming) <- dimnames(outgoing)
+  for (i in 1:length(centr)) {
+    outgoing[,i] <- centr[[i]]$outdeg
+    incoming[,i] <- centr[[i]]$indeg
+  }
+  if (pattern == "outgoing") {
+    mat <- t(outgoing)
+    legend.name <- "Outgoing"
+  } else if (pattern == "incoming") {
+    mat <- t(incoming)
+    legend.name <- "Incoming"
+  } else if (pattern == "all") {
+    mat <- t(outgoing+ incoming)
+    legend.name <- "Overall"
+  }
+  if (is.null(title)) {
+    title <- paste0(legend.name, " signaling patterns")
+  } else {
+    title <- paste0(paste0(legend.name, " signaling patterns"), " - ",title)
+  }
+
+  if (!is.null(signaling)) {
+    mat1 <- mat[rownames(mat) %in% signaling, , drop = FALSE]
+    mat <- matrix(0, nrow = length(signaling), ncol = ncol(mat))
+    idx <- match(rownames(mat1), signaling)
+    mat[idx[!is.na(idx)], ] <- mat1
+    dimnames(mat) <- list(signaling, colnames(mat1))
+  }
+  mat.ori <- mat
+  mat.ori <- mat.ori[,desired_order]
+  mat <- sweep(mat, 1L, apply(mat, 1, max), '/', check.margin = FALSE)
+  mat[mat == 0] <- NA
+  mat <- mat[,desired_order]
+  
+
+
+  if (is.null(color.use)) {
+    color.use <- scPalette(length(colnames(mat)))
+  }
+  color.heatmap.use = grDevices::colorRampPalette((RColorBrewer::brewer.pal(n = 9, name = color.heatmap)))(100)
+
+  df<- data.frame(group = colnames(mat)); rownames(df) <- colnames(mat)
+  
+  names(color.use) <- colnames(mat)
+  col_annotation <- HeatmapAnnotation(df = df, col = list(group = color.use),which = "column",
+                                      show_legend = FALSE, show_annotation_name = FALSE,
+                                      simple_anno_size = grid::unit(0.2, "cm"))
+  ha2 = HeatmapAnnotation(Strength = anno_barplot(colSums(mat.ori), border = FALSE,gp = gpar(fill = color.use, col=color.use)), show_annotation_name = FALSE)
+
+  pSum <- rowSums(mat.ori)
+  pSum.original <- pSum
+  pSum <- -1/log(pSum)
+  pSum[is.na(pSum)] <- 0
+  idx1 <- which(is.infinite(pSum) | pSum < 0)
+  if (length(idx1) > 0) {
+    values.assign <- seq(max(pSum)*1.1, max(pSum)*1.5, length.out = length(idx1))
+    position <- sort(pSum.original[idx1], index.return = TRUE)$ix
+    pSum[idx1] <- values.assign[match(1:length(idx1), position)]
+  }
+
+  ha1 = rowAnnotation(Strength = anno_barplot(pSum, border = FALSE), show_annotation_name = FALSE)
+
+  if (min(mat, na.rm = T) == max(mat, na.rm = T)) {
+    legend.break <- max(mat, na.rm = T)
+  } else {
+    legend.break <- c(round(min(mat, na.rm = T), digits = 1), round(max(mat, na.rm = T), digits = 1))
+  }
+  ht1 = Heatmap(mat, col = color.heatmap.use, na_col = "white", name = "Relative strength",
+                bottom_annotation = col_annotation, top_annotation = ha2, right_annotation = ha1,
+                cluster_rows = cluster.rows,cluster_columns = cluster.rows,
+                row_names_side = "left",row_names_rot = 0,row_names_gp = gpar(fontsize = font.size),column_names_gp = gpar(fontsize = font.size),
+                width = unit(width, "cm"), height = unit(height, "cm"),
+                column_title = title,column_title_gp = gpar(fontsize = font.size.title),column_names_rot = 90,
+                heatmap_legend_param = list(title_gp = gpar(fontsize = 8, fontface = "plain"),title_position = "leftcenter-rot",
+                                            border = NA, at = legend.break,
+                                            legend_height = unit(20, "mm"),labels_gp = gpar(fontsize = 8),grid_width = unit(2, "mm"))
+  )
+  #  draw(ht1)
+  return(ht1)
+}
+
+
+#### Make Output Directory
+# Define the subdirectory you want to check for
+subdirectory <- 'f_Incoming_Outgoing_Heatmaps'
+
+# Create the full path to the subdirectory
+subdirectory.path <- file.path(output.dir, subdirectory, "/")
+
+# Check if the subdirectory exists
+if (!file.exists(subdirectory.path)) {
+  # If it doesn't exist, create it
+  dir.create(subdirectory.path)
+  cat("Subdirectory created:", subdirectory.path, "\n")
+} else {
+  cat("Subdirectory already exists:", subdirectory.path, "\n")
+}
+
+##########
+
+i = 1
+# combining all the identified signaling pathways from different datasets 
+
+pathway.union = unique(unlist(lapply(object.list, getPath)))
+
+out1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "BuGn")
+out2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+1], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "BuGn")
+out3 = netAnalysis_signalingRole_heatmap(object.list[[i+2]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+2], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "BuGn")
+out4 = netAnalysis_signalingRole_heatmap(object.list[[i+3]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+3], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "BuGn")
+out5 = netAnalysis_signalingRole_heatmap(object.list[[i+4]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+4], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "BuGn")
+out6 = netAnalysis_signalingRole_heatmap(object.list[[i+5]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+5], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "BuGn")
+out7 = netAnalysis_signalingRole_heatmap(object.list[[i+6]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+6], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "BuGn")
+out8 = netAnalysis_signalingRole_heatmap(object.list[[i+7]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+7], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "BuGn")
+out9 = netAnalysis_signalingRole_heatmap(object.list[[i+8]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+8], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "BuGn")
+out10 = netAnalysis_signalingRole_heatmap(object.list[[i+9]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+9], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "BuGn")
+out11 = netAnalysis_signalingRole_heatmap(object.list[[i+10]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+10], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "BuGn")
+out12 = netAnalysis_signalingRole_heatmap(object.list[[i+11]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+11], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "BuGn")
+out13 = netAnalysis_signalingRole_heatmap(object.list[[i+12]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+12], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "BuGn")
+out14 = netAnalysis_signalingRole_heatmap(object.list[[i+13]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+13], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "BuGn")
+
+
+in1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "GnBu")
+in2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i+1], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "GnBu")
+in3 = netAnalysis_signalingRole_heatmap(object.list[[i+2]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i+2], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "GnBu")
+in4 = netAnalysis_signalingRole_heatmap(object.list[[i+3]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i+3], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "GnBu")
+in5 = netAnalysis_signalingRole_heatmap(object.list[[i+4]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i+4], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "GnBu")
+in6 = netAnalysis_signalingRole_heatmap(object.list[[i+5]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i+5], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "GnBu")
+in7 = netAnalysis_signalingRole_heatmap(object.list[[i+6]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i+6], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "GnBu")
+in8 = netAnalysis_signalingRole_heatmap(object.list[[i+7]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i+7], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "GnBu")
+in9 = netAnalysis_signalingRole_heatmap(object.list[[i+8]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i+8], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "GnBu")
+in10 = netAnalysis_signalingRole_heatmap(object.list[[i+9]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i+9], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "GnBu")
+in11 = netAnalysis_signalingRole_heatmap(object.list[[i+10]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i+10], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "GnBu")
+in12 = netAnalysis_signalingRole_heatmap(object.list[[i+11]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i+11], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "GnBu")
+in13 = netAnalysis_signalingRole_heatmap(object.list[[i+12]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i+12], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "GnBu")
+in14 = netAnalysis_signalingRole_heatmap(object.list[[i+13]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i+13], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "GnBu")
+
+all1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "all", signaling = pathway.union, title = names(object.list)[i], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "OrRd")
+all2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "all", signaling = pathway.union, title = names(object.list)[i+1], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "OrRd")
+all3 = netAnalysis_signalingRole_heatmap(object.list[[i+2]], pattern = "all", signaling = pathway.union, title = names(object.list)[i+2], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "OrRd")
+all4 = netAnalysis_signalingRole_heatmap(object.list[[i+3]], pattern = "all", signaling = pathway.union, title = names(object.list)[i+3], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "OrRd")
+all5 = netAnalysis_signalingRole_heatmap(object.list[[i+4]], pattern = "all", signaling = pathway.union, title = names(object.list)[i+4], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "OrRd")
+all6 = netAnalysis_signalingRole_heatmap(object.list[[i+5]], pattern = "all", signaling = pathway.union, title = names(object.list)[i+5], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "OrRd")
+all7 = netAnalysis_signalingRole_heatmap(object.list[[i+6]], pattern = "all", signaling = pathway.union, title = names(object.list)[i+6], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "OrRd")
+all8 = netAnalysis_signalingRole_heatmap(object.list[[i+7]], pattern = "all", signaling = pathway.union, title = names(object.list)[i+7], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "OrRd")
+all9 = netAnalysis_signalingRole_heatmap(object.list[[i+8]], pattern = "all", signaling = pathway.union, title = names(object.list)[i+8], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "OrRd")
+all10 = netAnalysis_signalingRole_heatmap(object.list[[i+9]], pattern = "all", signaling = pathway.union, title = names(object.list)[i+9], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "OrRd")
+all11 = netAnalysis_signalingRole_heatmap(object.list[[i+10]], pattern = "all", signaling = pathway.union, title = names(object.list)[i+10], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "OrRd")
+all12 = netAnalysis_signalingRole_heatmap(object.list[[i+11]], pattern = "all", signaling = pathway.union, title = names(object.list)[i+11], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "OrRd")
+all13 = netAnalysis_signalingRole_heatmap(object.list[[i+12]], pattern = "all", signaling = pathway.union, title = names(object.list)[i+12], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "OrRd")
+all14 = netAnalysis_signalingRole_heatmap(object.list[[i+13]], pattern = "all", signaling = pathway.union, title = names(object.list)[i+13], width = 5, height = 8,  color.use = colors.diff, color.heatmap = "OrRd")
+
+
+
+cairo_pdf(filename = paste0(subdirectory.path, 'incoming_heatmaps.pdf'), width = 40)
+  draw(in1 +
+    in2 +
+    in3 +
+    in4 +
+    in5 +
+    in6 +
+    in7 +
+    in8 +
+    in9 +
+    in10 +
+    in11 +
+    in12 +
+    in13 +
+    in14 , ht_gap = unit(1, "cm"))
+dev.off()
+
+cairo_pdf(filename = paste0(subdirectory.path, 'outgoing_heatmaps.pdf'), width = 40)
+  draw(out1 +
+    out2 +
+    out3 +
+    out4 +
+    out5 +
+    out6 +
+    out7 +
+    out8 +
+    out9 +
+    out10 +
+    out11 +
+    out12 +
+    out13 +
+    out14, ht_gap = unit(1, "cm"))
+dev.off()
+
+cairo_pdf(filename = paste0(subdirectory.path, 'all_heatmaps.pdf'), width = 40)
+  draw(all1+
+    all2+
+    all3+
+    all4+
+    all5+
+    all6+
+    all7+
+    all8+
+    all9+
+    all10+
+    all11+
+    all12+
+    all13+
+    all14, ht_gap = unit(1, "cm"))
+dev.off()
+
+```
+
+
+# ################################################################################
+# ################################################################################
+# ################################################################################
+
+### Part III: Identify the upgulated and down-regulated signaling ligand-receptor pairs
+
+##Identify dysfunctional signaling by comparing the communication probabities
+
+We can compare the communication probabilities mediated by ligand-receptor pairs from some cell groups to other cell groups. This can be done by setting comparison in the function netVisual_bubble.
+```{r}
+#### Make Output Directory
+# Define the subdirectory you want to check for
+subdirectory <- 'g_Communication_Probabilities'
+
+# Create the full path to the subdirectory
+subdirectory.path <- file.path(output.dir, subdirectory, "/")
+
+# Check if the subdirectory exists
+if (!file.exists(subdirectory.path)) {
+  # If it doesn't exist, create it
+  dir.create(subdirectory.path)
+  cat("Subdirectory created:", subdirectory.path, "\n")
+} else {
+  cat("Subdirectory already exists:", subdirectory.path, "\n")
+}
+
+##########
+
+pdf(paste0(subdirectory.path, 'Cell Signaling Bubble Plot 2 Hr.pdf'), width = 35, height = 20)
+netVisual_bubble(cellchat, sources.use = c(1:10), targets.use = c(1:10),  comparison = c(1,2), angle.x = 45)
+dev.off()
+
+pdf(paste0(subdirectory.path, 'Cell Signaling Bubble Plot 4 Hr.pdf'), width = 35, height = 20)
+netVisual_bubble(cellchat, sources.use = c(1:10), targets.use = c(1:10),  comparison = c(3,4), angle.x = 45)
+dev.off()
+
+pdf(paste0(subdirectory.path, 'Cell Signaling Bubble Plot 8 Hr.pdf'), width = 35, height = 20)
+netVisual_bubble(cellchat, sources.use = c(1:10), targets.use = c(1:10),  comparison = c(5,6), angle.x = 45)
+dev.off()
+
+pdf(paste0(subdirectory.path, 'Cell Signaling Bubble Plot 12 Hr.pdf'), width = 35, height = 20)
+netVisual_bubble(cellchat, sources.use = c(1:10), targets.use = c(1:10),  comparison = c(7,8), angle.x = 45)
+dev.off()
+
+pdf(paste0(subdirectory.path, 'Cell Signaling Bubble Plot 18 Hr.pdf'), width = 35, height = 20)
+netVisual_bubble(cellchat, sources.use = c(1:10), targets.use = c(1:10),  comparison = c(9,10), angle.x = 45)
+dev.off()
+
+pdf(paste0(subdirectory.path, 'Cell Signaling Bubble Plot 24 Hr.pdf'), width = 35, height = 20)
+netVisual_bubble(cellchat, sources.use = c(1:10), targets.use = c(1:10),  comparison = c(11,12), angle.x = 45)
+dev.off()
+
+pdf(paste0(subdirectory.path, 'Cell Signaling Bubble Plot 72 Hr.pdf'), width = 35, height = 20)
+netVisual_bubble(cellchat, sources.use = c(1:10), targets.use = c(1:10),  comparison = c(13,14), angle.x = 45)
+dev.off()
+
+
+
+#Example on how to hone in on specific pathway
+#cairo_pdf(filename = paste0(output.dir, 'Hepatocytes VEGF 12 Hr.pdf'), height = 3)
+#netVisual_bubble(cellchat, sources.use = "Hepatocytes", targets.use = c(1:13), signaling  = c("VEGF"), comparison = c(7,8), angle.x = 45)
+#dev.off()
+
+#plotGeneExpression(cellchat.8, signaling = "VISFATIN", split.by = "datasets", colors.ggplot = T)
+```
+
+
+# ################################################################################
+# ################################################################################
+# ################################################################################
+
+###Identify dysfunctional signaling by using differential expression analysis
+The above method for identifying the upgulated and down-regulated signaling is perfomed by comparing the communication probability between two datasets for each L-R pair and each pair of cell groups. Alternative, we can identify the upgulated and down-regulated signaling ligand-receptor pairs based on the differential gene expression analysis. Specifically, we perform differential expression analysis between two biological conditions (i.e., NL and LS) for each cell group, and then obtain the upgulated and down-regulated signaling based on the fold change of ligands in the sender cells and receptors in the receiver cells. Such analysis can be done as follows.
+```{r}
+#### Make Output Directory
+subdirectory <- 'h_Chord_Diagrams'
+
+# Create the full path to the subdirectory
+subdirectory.path <- file.path(output.dir, subdirectory, "/")
+
+# Check if the subdirectory exists
+if (!file.exists(subdirectory.path)) {
+  # If it doesn't exist, create it
+  dir.create(subdirectory.path)
+  cat("Subdirectory created:", subdirectory.path, "\n")
+} else {
+  cat("Subdirectory already exists:", subdirectory.path, "\n")
+}
+
+##########
+
+time_points <- c(2, 4, 8, 12, 18, 24, 72)
+
+for (time_point in time_points) {
+  pos.dataset <- paste("D30_", time_point, sep = "")
+  features.name <- pos.dataset
+  
+  assign(paste("cellchat.", time_point, sep = ""), 
+         identifyOverExpressedGenes(get(paste("cellchat.", time_point, sep = "")), 
+                                    group.dataset = "datasets", 
+                                    pos.dataset = pos.dataset, 
+                                    features.name = features.name, 
+                                    only.pos = FALSE, 
+                                    thresh.pc = 0.25, 
+                                    thresh.fc = 0.1, 
+                                    thresh.p = 0.05))
+  
+  assign(paste("net.", time_point, sep = ""), 
+         netMappingDEG(get(paste("cellchat.", time_point, sep = "")), 
+                       features.name = features.name))
+  
+  
+  assign(paste("net.up.", time_point, sep = ""), 
+         subsetCommunication(get(paste("cellchat.", time_point, sep = "")), 
+                             net = get(paste("net.", time_point, sep = "")), 
+                             datasets = paste("D30_", time_point, sep = ""), 
+                             ligand.logFC = 0.1, 
+                             receptor.logFC = NULL))
+  
+  assign(paste("net.down.", time_point, sep = ""), 
+         subsetCommunication(get(paste("cellchat.", time_point, sep = "")), 
+                             net = get(paste("net.", time_point, sep = "")), 
+                             datasets = paste("D30_", time_point, sep = ""), 
+                             ligand.logFC = -0.1, 
+                             receptor.logFC = NULL))
+  
+  assign(paste("gene.up.", time_point, sep = ""), 
+         extractGeneSubsetFromPair(get(paste("net.up.", time_point, sep = "")), 
+                                   get(paste("cellchat.", time_point, sep = ""))))
+  
+  assign(paste("gene.down.", time_point, sep = ""), 
+         extractGeneSubsetFromPair(get(paste("net.down.", time_point, sep = "")), 
+                                   get(paste("cellchat.", time_point, sep = ""))))
+  
+  # Save net.time_point as tab-delimited file
+  net_file_path <- paste0(subdirectory.path, "net_", time_point, ".txt")
+  write.table(get(paste("net.", time_point, sep = "")), file = net_file_path, sep = "\t", quote = FALSE, col.names = NA)
+
+
+}
+
+
+
+
+
+
+
+```
+
+
+# Custom Chord Diagram
+```{r}
+library(circlize)
+custom_netVisual_chord_gene <- function(object, 
+                                        slot.name = "net", 
+                                        color.use = NULL,
+                                        signaling = NULL, 
+                                        pairLR.use = NULL, 
+                                        net = NULL,
+                                        sources.use = NULL, 
+                                        targets.use = NULL,
+                                        lab.cex = 0.8,
+                                        small.gap = 1, 
+                                        big.gap = 10, 
+                                        annotationTrackHeight = c(0.03),
+                                        link.visible = TRUE, 
+                                        scale = FALSE, 
+                                        directional = 1, 
+                                        link.target.prop = TRUE, 
+                                        reduce = -1,
+                                        transparency = 0.4, 
+                                        link.border = NA,
+                                        title.name = NULL, 
+                                        legend.pos.x = 20, 
+                                        legend.pos.y = 20, 
+                                        show.legend = TRUE,
+                                        thresh = 0.05,
+                                 ...){
+  if (!is.null(pairLR.use)) {
+    if (!is.data.frame(pairLR.use)) {
+      stop("pairLR.use should be a data frame with a signle column named either 'interaction_name' or 'pathway_name' ")
+    } else if ("pathway_name" %in% colnames(pairLR.use)) {
+      message("slot.name is set to be 'netP' when pairLR.use contains signaling pathways")
+      slot.name = "netP"
+    }
+  }
+
+  if (!is.null(pairLR.use) & !is.null(signaling)) {
+    stop("Please do not assign values to 'signaling' when using 'pairLR.use'")
+  }
+
+  if (is.null(net)) {
+    prob <- slot(object, "net")$prob
+    pval <- slot(object, "net")$pval
+    prob[pval > thresh] <- 0
+    net <- reshape2::melt(prob, value.name = "prob")
+    colnames(net)[1:3] <- c("source","target","interaction_name")
+
+    pairLR = dplyr::select(object@LR$LRsig, c("interaction_name_2", "pathway_name",  "ligand",  "receptor" ,"annotation","evidence"))
+    idx <- match(net$interaction_name, rownames(pairLR))
+    temp <- pairLR[idx,]
+    net <- cbind(net, temp)
+  }
+
+  if (!is.null(signaling)) {
+    pairLR.use <- data.frame()
+    for (i in 1:length(signaling)) {
+      pairLR.use.i <- searchPair(signaling = signaling[i], pairLR.use = object@LR$LRsig, key = "pathway_name", matching.exact = T, pair.only = T)
+      pairLR.use <- rbind(pairLR.use, pairLR.use.i)
+    }
+  }
+
+  if (!is.null(pairLR.use)){
+    if ("interaction_name" %in% colnames(pairLR.use)) {
+      net <- subset(net,interaction_name %in% pairLR.use$interaction_name)
+    } else if ("pathway_name" %in% colnames(pairLR.use)) {
+      net <- subset(net, pathway_name %in% as.character(pairLR.use$pathway_name))
+    }
+  }
+
+  if (slot.name == "netP") {
+    net <- dplyr::select(net, c("source","target","pathway_name","prob"))
+    net$source_target <- paste(net$source, net$target, sep = "sourceTotarget")
+    net <- net %>% dplyr::group_by(source_target, pathway_name) %>% dplyr::summarize(prob = sum(prob))
+    a <- stringr::str_split(net$source_target, "sourceTotarget", simplify = T)
+    net$source <- as.character(a[, 1])
+    net$target <- as.character(a[, 2])
+    net$ligand <- net$pathway_name
+    net$receptor <- " "
+  }
+
+  # keep the interactions associated with sources and targets of interest
+  if (!is.null(sources.use)){
+    if (is.numeric(sources.use)) {
+      sources.use <- levels(object@idents)[sources.use]
+    }
+    net <- subset(net, source %in% sources.use)
+  } else {
+    sources.use <- levels(object@idents)
+  }
+  if (!is.null(targets.use)){
+    if (is.numeric(targets.use)) {
+      targets.use <- levels(object@idents)[targets.use]
+    }
+    net <- subset(net, target %in% targets.use)
+  } else {
+    targets.use <- levels(object@idents)
+  }
+  # remove the interactions with zero values
+  df <- subset(net, prob > 0)
+
+  if (nrow(df) == 0) {
+    stop("No signaling links are inferred! ")
+  }
+
+  if (length(unique(net$ligand)) == 1) {
+    message("You may try the function `netVisual_chord_cell` for visualizing individual signaling pathway")
+  }
+
+  df$id <- 1:nrow(df)
+  # deal with duplicated sector names
+  ligand.uni <- unique(df$ligand)
+  for (i in 1:length(ligand.uni)) {
+    df.i <- df[df$ligand == ligand.uni[i], ]
+    source.uni <- unique(df.i$source)
+    for (j in 1:length(source.uni)) {
+      df.i.j <- df.i[df.i$source == source.uni[j], ]
+      df.i.j$ligand <- paste0(df.i.j$ligand, paste(rep(' ',j-1),collapse = ''))
+      df$ligand[df$id %in% df.i.j$id] <- df.i.j$ligand
+    }
+  }
+  receptor.uni <- unique(df$receptor)
+  for (i in 1:length(receptor.uni)) {
+    df.i <- df[df$receptor == receptor.uni[i], ]
+    target.uni <- unique(df.i$target)
+    for (j in 1:length(target.uni)) {
+      df.i.j <- df.i[df.i$target == target.uni[j], ]
+      df.i.j$receptor <- paste0(df.i.j$receptor, paste(rep(' ',j-1),collapse = ''))
+      df$receptor[df$id %in% df.i.j$id] <- df.i.j$receptor
+    }
+  }
+
+  #cell.order.sources <- levels(object@idents)[levels(object@idents) %in% sources.use]
+  cell.order.sources <- c('Hepatocytes', 'ECs', 'HSCs', 'Macrophages', 'B Cells', 'T Cells', 'PFs', 'Cholangiocytes', 'pDCs', 'Neutrophils')
+  #cell.order.targets <- levels(object@idents)[levels(object@idents) %in% targets.use]
+  cell.order.targets <- c('Hepatocytes', 'ECs', 'HSCs', 'Macrophages', 'B Cells', 'T Cells', 'PFs', 'Cholangiocytes', 'pDCs', 'Neutrophils')
+
+  df$source <- factor(df$source, levels = cell.order.sources)
+  df$target <- factor(df$target, levels = cell.order.targets)
+  # df.ordered.source <- df[with(df, order(source, target, -prob)), ]
+  # df.ordered.target <- df[with(df, order(target, source, -prob)), ]
+  df.ordered.source <- df[with(df, order(source, -prob)), ]
+  df.ordered.target <- df[with(df, order(target, -prob)), ]
+
+  order.source <- unique(df.ordered.source[ ,c('ligand','source')])
+  order.target <- unique(df.ordered.target[ ,c('receptor','target')])
+
+  # define sector order
+  order.sector <- c(order.source$ligand, order.target$receptor)
+
+  # define cell type color
+  if (is.null(color.use)){
+    color.use = c('#db5f57', '#dbae57', '#b9db57', '#69db57', '#57db94', '#57d3db', '#5784db', '#7957db', '#c957db', '#db579e')
+    object@idents <- factor(object@idents, levels = c('Hepatocytes', 'ECs', 'HSCs', 'Macrophages', 'B Cells', 'T Cells', 'PFs', 'Cholangiocytes', 'pDCs', 'Neutrophils'))
+    names(color.use) <- levels(object@idents)
+    color.use <- color.use[levels(object@idents) %in% as.character(union(df$source,df$target))]
+  } else if (is.null(names(color.use))) {
+    names(color.use) <- levels(object@idents)
+    color.use <- color.use[levels(object@idents) %in% as.character(union(df$source,df$target))]
+  }
+
+  # define edge color
+  edge.color <- color.use[as.character(df.ordered.source$source)]
+  names(edge.color) <- as.character(df.ordered.source$source)
+
+  # define grid colors
+  grid.col.ligand <- color.use[as.character(order.source$source)]
+  names(grid.col.ligand) <- as.character(order.source$source)
+  grid.col.receptor <- color.use[as.character(order.target$target)]
+  names(grid.col.receptor) <- as.character(order.target$target)
+  grid.col <- c(as.character(grid.col.ligand), as.character(grid.col.receptor))
+  names(grid.col) <- order.sector
+
+  df.plot <- df.ordered.source[ ,c('ligand','receptor','prob')]
+
+  if (directional == 2) {
+    link.arr.type = "triangle"
+  } else {
+    link.arr.type = "big.arrow"
+  }
+  
+  #####
+  #####
+  #####
+circos.clear()
+  chordDiagram(df.plot,
+               order = order.sector,
+               col = edge.color,
+               grid.col = grid.col,
+               transparency = transparency,
+               link.border = link.border,
+               directional = directional,
+               direction.type = c("diffHeight","arrows"),
+               link.arr.type = link.arr.type,
+               annotationTrack = "grid",
+               annotationTrackHeight = annotationTrackHeight,
+               preAllocateTracks = list(track.height = 0.35),
+               small.gap = small.gap,
+               big.gap = big.gap,
+               link.visible = link.visible,
+               scale = scale,
+               link.target.prop = link.target.prop,
+               reduce = reduce,
+               ...)
+
+  circos.track(track.index = 1, panel.fun = function(x, y) {
+    xlim = get.cell.meta.data("xlim")
+    xplot = get.cell.meta.data("xplot")
+    ylim = get.cell.meta.data("ylim")
+    sector.name = get.cell.meta.data("sector.index")
+    circos.text(mean(xlim), ylim[1], sector.name, facing = "clockwise", niceFacing = TRUE, adj = c(0, 0.5),cex = lab.cex)
+  }, bg.border = NA)
+
+  # https://jokergoo.github.io/circlize_book/book/legends.html
+  if (show.legend) {
+    lgd <- ComplexHeatmap::Legend(at = names(color.use), type = "grid", legend_gp = grid::gpar(fill = color.use), title = "Cell State")
+    ComplexHeatmap::draw(lgd, x = unit(1, "npc")-unit(legend.pos.x, "mm"), y = unit(legend.pos.y, "mm"), just = c("right", "bottom"))
+  }
+
+  circos.clear()
+  if(!is.null(title.name)){
+    text(-0, 1.02, title.name, cex=1)
+  }
+  gg <- recordPlot()
+  #####
+  #####
+  #####
+  
+  return(gg)
+}
+```
+
+
+
+
+Visualize the upgulated and down-regulated signaling ligand-receptor pairs using Chord diagram
+```{r fig.height=6,fig.width=6}
+#### Make Output Directory
+subdirectory <- 'h_Chord_Diagrams'
+
+# Create the full path to the subdirectory
+subdirectory.path <- file.path(output.dir, subdirectory, "/")
+
+# Check if the subdirectory exists
+if (!file.exists(subdirectory.path)) {
+  # If it doesn't exist, create it
+  dir.create(subdirectory.path)
+  cat("Subdirectory created:", subdirectory.path, "\n")
+} else {
+  cat("Subdirectory already exists:", subdirectory.path, "\n")
+}
+
+##########
+
+colors.diff <- c('#db5f57', '#dbae57', '#b9db57', '#69db57', '#57db94', '#57d3db', '#5784db', '#7957db', '#c957db', '#db579e')
+cells <- c('Hepatocytes', 'ECs', 'HSCs', 'Macrophages', 'B Cells', 'T Cells', 'PFs', 'Cholangiocytes', 'pDCs', 'Neutrophils')
+
+####
+name.2 =  names(object.list)[2]
+
+pdf(paste0(subdirectory.path, "Up-regulated signaling in ", name.2, '.pdf'),width = 14, height = 10)
+custom_netVisual_chord_gene(object.list[[2]], sources.use = cells, targets.use = cells, slot.name = 'net', net = net.up.2, lab.cex = 0.8, small.gap = 2.5,title.name = paste0("Up-regulated signaling in ", name.2))
+dev.off()
+
+pdf(paste0(subdirectory.path, "Down-regulated signaling in ", name.2, '.pdf'),width = 14, height = 10)
+custom_netVisual_chord_gene(object.list[[1]], sources.use = cells, targets.use = cells,  slot.name = 'net', net = net.down.2, lab.cex = 0.8, small.gap = 2.5, title.name = paste0("Down-regulated signaling in ", name.2))
+dev.off()
+
+
+
+####
+name.4 =  names(object.list)[4]
+
+cairo_pdf(filename = paste0(subdirectory.path, "Up-regulated signaling in ", name.4, '.pdf'),width = 14, height = 10)
+  custom_netVisual_chord_gene(object.list[[4]], sources.use = cells, targets.use = cells, slot.name = 'net', net = net.up.4, lab.cex = 0.8, small.gap = 2.5, title.name = paste0("Up-regulated signaling in ", name.4))
+dev.off()
+
+cairo_pdf(filename = paste0(subdirectory.path, "Down-regulated signaling in ", name.4, '.pdf'), width = 14, height = 10)
+  custom_netVisual_chord_gene(object.list[[3]], sources.use = cells, targets.use = cells, slot.name = 'net', net = net.down.4, lab.cex = 0.8, small.gap = 2.5, title.name = paste0("Down-regulated signaling in ", name.4))
+dev.off()
+
+
+####
+name.8 =  names(object.list)[6]
+
+cairo_pdf(filename = paste0(subdirectory.path, "Up-regulated signaling in ", name.8, '.pdf'), width = 14, height = 10)
+  custom_netVisual_chord_gene(object.list[[6]], sources.use = cells, targets.use = cells, slot.name = 'net', net = net.up.8, lab.cex = 0.8, small.gap = 2.5, title.name = paste0("Up-regulated signaling in ", name.8))
+dev.off()
+
+cairo_pdf(filename = paste0(subdirectory.path, "Down-regulated signaling in ", name.8, '.pdf'), width = 14, height = 10)
+  custom_netVisual_chord_gene(object.list[[5]], sources.use = cells, targets.use = cells, slot.name = 'net', net = net.down.8, lab.cex = 0.8, small.gap = 2.5, title.name = paste0("Down-regulated signaling in ", name.8))
+dev.off()
+
+
+####
+name.12 =  names(object.list)[8]
+
+cairo_pdf(filename = paste0(subdirectory.path, "Up-regulated signaling in ", name.12, '.pdf'), width = 14, height = 10)
+  custom_netVisual_chord_gene(object.list[[8]], sources.use = cells, targets.use = cells, slot.name = 'net', net = net.up.12, lab.cex = 0.8, small.gap = 2.5, title.name = paste0("Up-regulated signaling in ", name.12))
+dev.off()
+
+cairo_pdf(filename = paste0(subdirectory.path, "Down-regulated signaling in ", name.12, '.pdf'), width = 14, height = 10)
+  custom_netVisual_chord_gene(object.list[[7]], sources.use = cells, targets.use = cells, slot.name = 'net', net = net.down.12, lab.cex = 0.8, small.gap = 2.5, title.name = paste0("Down-regulated signaling in ", name.12))
+dev.off()
+
+
+
+####
+name.18 =  names(object.list)[10]
+
+cairo_pdf(filename = paste0(subdirectory.path, "Up-regulated signaling in ", name.18, '.pdf'), width = 14, height = 10)
+  custom_netVisual_chord_gene(object.list[[10]], sources.use = cells, targets.use = cells, slot.name = 'net', net = net.up.18, lab.cex = 0.8, small.gap = 2.5, title.name = paste0("Up-regulated signaling in ", name.18))
+dev.off()
+
+cairo_pdf(filename = paste0(subdirectory.path, "Down-regulated signaling in ", name.18, '.pdf'), width = 14, height = 10)
+  custom_netVisual_chord_gene(object.list[[9]], sources.use = cells, targets.use = cells, slot.name = 'net', net = net.down.18, lab.cex = 0.8, small.gap = 2.5, title.name = paste0("Down-regulated signaling in ", name.18))
+dev.off()
+
+
+
+####
+name.24 =  names(object.list)[12]
+
+cairo_pdf(filename = paste0(subdirectory.path, "Up-regulated signaling in ", name.24, '.pdf'), width = 14, height = 10)
+  custom_netVisual_chord_gene(object.list[[12]], sources.use = cells, targets.use = cells, slot.name = 'net', net = net.up.24, lab.cex = 0.8, small.gap = 2.5, title.name = paste0("Up-regulated signaling in ", name.24))
+dev.off()
+
+cairo_pdf(filename = paste0(subdirectory.path, "Down-regulated signaling in ", name.24, '.pdf'), width = 14, height = 10)
+  custom_netVisual_chord_gene(object.list[[11]], sources.use = cells, targets.use = cells, slot.name = 'net', net = net.down.24, lab.cex = 0.8, small.gap = 2.5, title.name = paste0("Down-regulated signaling in ", name.24))
+dev.off()
+
+
+####
+name.72 =  names(object.list)[14]
+
+cairo_pdf(filename = paste0(subdirectory.path, "Up-regulated signaling in ", name.72, '.pdf'), width = 14, height = 10)
+  custom_netVisual_chord_gene(object.list[[14]], sources.use = cells, targets.use = cells, slot.name = 'net', net = net.up.72, lab.cex = 0.8, small.gap = 2.5, title.name = paste0("Up-regulated signaling in ", name.72))
+dev.off()
+
+cairo_pdf(filename = paste0(subdirectory.path, "Down-regulated signaling in ", name.72, '.pdf'), width = 14, height = 10)
+  custom_netVisual_chord_gene(object.list[[13]], sources.use = cells, targets.use = cells, slot.name = 'net', net = net.down.72, lab.cex = 0.8, small.gap = 2.5, title.name = paste0("Down-regulated signaling in ", name.72))
+dev.off()
+```
+
+```{r}
+cellchat.2@meta$datasets = factor(cellchat.2@meta$datasets, levels = c("D0_2", "D30_2")) # set factor level
+plotGeneExpression(cellchat.2, signaling = "KIT", split.by = "datasets", colors.ggplot = T)
+#> The default behaviour of split.by has changed.
+#> Separate violin plots are now plotted side-by-side.
+#> To restore the old behaviour of a single split violin,
+#> set split.plot = TRUE.
+#>       
+#> This message will be shown once per session.
+#> Scale for 'y' is already present. Adding another scale for 'y', which will
+#> replace the existing scale.
+#> Scale for 'y' is already present. Adding another scale for 'y', which will
+#> replace the existing scale.
+#> Scale for 'y' is already present. Adding another scale for 'y', which will
+#> replace the existing scale.
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#This figure produces a net plot of the approximate number of interactions per dataset.
+I don't really care for them, so i probable won't use them in my publication. 
+```{r fig.height = 16, fig.width = 16}
+weight.max <- getMaxWeight(object.list, attribute = c("idents","count"))
+
+cairo_pdf(filename = paste0(output.dir, "Inferred interactions by datasets" , '.pdf'), height = 20, width = 20)
+
+par(mfrow = c(4,4), xpd=TRUE)
+for (i in 1:length(object.list)) {
+  netVisual_circle(object.list[[i]]@net$count, weight.scale = T, label.edge= F, edge.weight.max = weight.max[2], edge.width.max = 12, title.name = paste0("Number of interactions - ", names(object.list)[i]))
+}
+dev.off()
+```
+
+
+#This plots the incoming (y-axis) vs outgoing (x-axis) interaction *strengths*
+```{r fig.height = 8}
+num.link <- sapply(object.list, function(x) {rowSums(x@net$count) + colSums(x@net$count)-diag(x@net$count)})
+weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the different datasets
+gg <- list()
+for (i in 1:length(object.list)) {
+  gg[[i]] <- netAnalysis_signalingRole_scatter(object.list[[i]], title = names(object.list)[i], weight.MinMax = weight.MinMax) #+ ylim(0, 0.1)+ xlim(0, 0.1)
+}
+#> Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+
+
+cairo_pdf(filename = paste0(output.dir, "Differential Interaction Strength by CellType" , '.pdf'), height = 16, width = 20)
+patchwork::wrap_plots(plots = gg)
+dev.off()
+
+```
+
+
+
+
+```{r}
+
+
+pos.dataset.2 = "D30_2"            
+features.name.2 = pos.dataset.2     
+cellchat.2 <- identifyOverExpressedGenes(cellchat.2, group.dataset = "datasets", pos.dataset = pos.dataset.2, features.name = features.name.2, only.pos = FALSE, thresh.pc = 0.1, thresh.fc = 0.1, thresh.p = 1)
+net.2 <- netMappingDEG(cellchat.2, features.name = features.name.2) 
+net.up.2 <- subsetCommunication(cellchat.2, net = net.2, datasets = "D30_2",ligand.logFC = 0.1, receptor.logFC = 0.1) 
+net.down.2 <- subsetCommunication(cellchat.2, net = net.2, datasets = "D0_2",ligand.logFC = -0.1, receptor.logFC = -0.1)  
+gene.up.2 <- extractGeneSubsetFromPair(net.up.2, cellchat.2)
+gene.down.2 <- extractGeneSubsetFromPair(net.down.2, cellchat.2)
+
+pos.dataset.4 = "D30_4"
+features.name.4 = pos.dataset.4
+cellchat.4 <- identifyOverExpressedGenes(cellchat.4, group.dataset = "datasets", pos.dataset = pos.dataset.4, features.name = features.name.4, only.pos = FALSE, thresh.pc = 0.1, thresh.fc = 0.1, thresh.p = 1)
+net.4 <- netMappingDEG(cellchat.4, features.name = features.name.4)
+net.up.4 <- subsetCommunication(cellchat.4, net = net.4, datasets = "D30_4",ligand.logFC = 0.1, receptor.logFC = 0.1)
+net.down.4 <- subsetCommunication(cellchat.4, net = net.4, datasets = "D0_4",ligand.logFC = -0.1, receptor.logFC = -0.1)
+
+pos.dataset.8 = "D30_8"
+features.name.8 = pos.dataset.8
+cellchat.8 <- identifyOverExpressedGenes(cellchat.8, group.dataset = "datasets", pos.dataset = pos.dataset.8, features.name = features.name.8, only.pos = FALSE, thresh.pc = 0.1, thresh.fc = 0.1, thresh.p = 1)
+net.8 <- netMappingDEG(cellchat.8, features.name = features.name.8)
+net.up.8 <- subsetCommunication(cellchat.8, net = net.8, datasets = "D30_8",ligand.logFC = 0.1, receptor.logFC = 0.1)
+net.down.8 <- subsetCommunication(cellchat.8, net = net.8, datasets = "D0_8",ligand.logFC = -0.1, receptor.logFC = -0.1)
+
+pos.dataset.12 = "D30_12"
+features.name.12 = pos.dataset.12
+cellchat.12 <- identifyOverExpressedGenes(cellchat.12, group.dataset = "datasets", pos.dataset = pos.dataset.12, features.name = features.name.12, only.pos = FALSE, thresh.pc = 0.1, thresh.fc = 0.1, thresh.p = 1)
+net.12 <- netMappingDEG(cellchat.12, features.name = features.name.12)
+net.up.12 <- subsetCommunication(cellchat.12, net = net.12, datasets = "D30_12",ligand.logFC = 0.1, receptor.logFC = 0.1)
+net.down.12 <- subsetCommunication(cellchat.12, net = net.12, datasets = "D0_12",ligand.logFC = -0.1, receptor.logFC = -0.1)
+
+pos.dataset.18 = "D30_18"
+features.name.18 = pos.dataset.18
+cellchat.18 <- identifyOverExpressedGenes(cellchat.18, group.dataset = "datasets", pos.dataset = pos.dataset.18, features.name = features.name.18, only.pos = FALSE, thresh.pc = 0.1, thresh.fc = 0.1, thresh.p = 1)
+net.18 <- netMappingDEG(cellchat.18, features.name = features.name.18)
+net.up.18 <- subsetCommunication(cellchat.18, net = net.18, datasets = "D30_18",ligand.logFC = 0.1, receptor.logFC = 0.1)
+net.down.18 <- subsetCommunication(cellchat.18, net = net.18, datasets = "D0_18",ligand.logFC = -0.1, receptor.logFC = -0.1)
+
+pos.dataset.24 = "D30_24"
+features.name.24 = pos.dataset.24
+cellchat.24 <- identifyOverExpressedGenes(cellchat.24, group.dataset = "datasets", pos.dataset = pos.dataset.24, features.name = features.name.24, only.pos = FALSE, thresh.pc = 0.1, thresh.fc = 0.1, thresh.p = 1)
+net.24 <- netMappingDEG(cellchat.24, features.name = features.name.24)
+net.up.24 <- subsetCommunication(cellchat.24, net = net.24, datasets = "D30_24",ligand.logFC = 0.1, receptor.logFC = 0.1)
+net.down.24 <- subsetCommunication(cellchat.24, net = net.24, datasets = "D0_24",ligand.logFC = -0.1, receptor.logFC = -0.1)
+
+pos.dataset.72 = "D30_72"
+features.name.72 = pos.dataset.72
+cellchat.72 <- identifyOverExpressedGenes(cellchat.72, group.dataset = "datasets", pos.dataset = pos.dataset.72, features.name = features.name.72, only.pos = FALSE, thresh.pc = 0.1, thresh.fc = 0.1, thresh.p = 1)
+net.72 <- netMappingDEG(cellchat.72, features.name = features.name.72)
+net.up.72 <- subsetCommunication(cellchat.72, net = net.72, datasets = "D30_72",ligand.logFC = 0.1, receptor.logFC = 0.1)
+net.down.72 <- subsetCommunication(cellchat.72, net = net.72, datasets = "D0_72",ligand.logFC = -0.1, receptor.logFC = -0.1)
+
+#Since the signaling genes in the net.up and net.down might be complex with multi-subunits, we can do further deconvolution to obtain the individual signaling genes.
+gene.up.2 <- extractGeneSubsetFromPair(net.up.2, cellchat.2)
+gene.down.2 <- extractGeneSubsetFromPair(net.down.2, cellchat.2)
+
+gene.up.4 <- extractGeneSubsetFromPair(net.up.4, cellchat.4)
+gene.down.4 <- extractGeneSubsetFromPair(net.down.4, cellchat.4)
+
+```
+
+
+
+
+
+visualize the enriched ligands in the first condition
+```{r}
+# visualize the enriched ligands in the first condition
+computeEnrichmentScore(net.down.2, species = 'mouse')
+
+# visualize the enriched ligands in the second condition
+computeEnrichmentScore(net.up.2, species = 'mouse')
+```
+
+
+
+
+
+###Part IV: Visually compare cell-cell communication using Hierarchy plot, Circle plot or Chord diagram
+Similar to the CellChat analysis of individual dataset, we can visualize the cell-cell communication network using Hierarchy plot, Circle plot or Chord diagram.
+
+Edge color/weight, node color/size/shape: In all visualization plots, edge colors are consistent with the sources as sender, and edge weights are proportional to the interaction strength. Thicker edge line indicates a stronger signal. In the Hierarchy plot and Circle plot, circle sizes are proportional to the number of cells in each cell group. In the hierarchy plot, solid and open circles represent source and target, respectively. In the Chord diagram, the inner thinner bar colors represent the targets that receive signal from the corresponding outer bar. The inner bar size is proportional to the signal strength received by the targets. Such inner bar is helpful for interpreting the complex chord diagram. Note that there exist some inner bars without any chord for some cell groups, please just igore it because this is an issue that has not been addressed by circlize package.
+
+
+
+
+
+
+
+
+```{r}
+pathways.show <- c("KIT") 
+weight.max <- getMaxWeight(object.list, slot.name = c("netP"), attribute = pathways.show) # control the edge weights across different datasets
+par(mfrow = c(1,2), xpd=TRUE)
+for (i in 1:length(object.list)) {
+  netVisual_aggregate(object.list[[i]], signaling = pathways.show, layout = "circle", edge.weight.max = weight.max[1], edge.width.max = 10, signaling.name = paste(pathways.show, names(object.list)[i]))
+}
+```
+
+
+```{r}
+pathways.show <- c("KIT") 
+#par(mfrow = c(1,2), xpd=TRUE)
+ht <- list()
+for (i in 1:length(object.list)) {
+  ht[[i]] <- netVisual_heatmap(object.list[[i]], signaling = pathways.show, color.heatmap = "Reds",title.name = paste(pathways.show, "signaling ",names(object.list)[i]))
+}
+
+#> Do heatmap based on a single object
+ComplexHeatmap::draw(ht[[1]] + ht[[2]], ht_gap = unit(0.5, "cm"))
+```
+
+
+```{r}
+# Chord diagram
+pathways.show <- c("KIT") 
+par(mfrow = c(1,2), xpd=TRUE)
+for (i in 1:length(object.list)) {
+  netVisual_aggregate(object.list[[i]], signaling = pathways.show, layout = "chord", signaling.name = paste(pathways.show, names(object.list)[i]))
+}
+```
+
+
+
+
+##Part V: Compare the signaling gene expression distribution between different datasets
+We can plot the gene expression distribution of signaling genes related to L-R pairs or signaling pathway using a Seurat wrapper function plotGeneExpression.
+
+```{r}
+pathways.list <- cellchat.8@netP$D0_8$pathways
+getPath <- function(obj){
+  out = obj@netP$pathways
+  return(out)
+}
+
+# combining all the identified signaling pathways from different datasets 
+pathway.union = unique(unlist(lapply(object.list, getPath)))
+
+for (f in pathway.union){
+  print(f)
+    cairo_pdf(filename = paste0(output.dir, f, " genes ", "8 hr", '.pdf'))
+    print(plotGeneExpression(cellchat.8, signaling = toString(f), split.by = "Dose", group.by = "celltype"))
+    dev.off()
+}
+
+
+#cellchat@meta$datasets = factor(cellchat@meta$datasets, levels = c("NL", "LS")) # set factor level
+
+cairo_pdf(filename = paste0(output.dir,"NRG genes 8 hr", '.pdf'), width = 12, height = 7)
+plotGeneExpression(cellchat.8, signaling = "NRG", split.by = "Dose", group.by = "celltype")
+dev.off()
+```
+
+
+
+
+
+
+
+
