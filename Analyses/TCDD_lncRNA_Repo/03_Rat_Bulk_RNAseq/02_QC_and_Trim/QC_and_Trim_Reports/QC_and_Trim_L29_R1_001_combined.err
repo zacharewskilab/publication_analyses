@@ -1,0 +1,51 @@
+
+Currently Loaded Modules:
+  1) Java/11 -> Java/11.0.20   2) FastQC/0.12.1-Java-11
+
+ 
+
+Started analysis of L29_R1_001_combined.fastq.gz
+Approx 5% complete for L29_R1_001_combined.fastq.gz
+Approx 10% complete for L29_R1_001_combined.fastq.gz
+Approx 15% complete for L29_R1_001_combined.fastq.gz
+Approx 20% complete for L29_R1_001_combined.fastq.gz
+Approx 25% complete for L29_R1_001_combined.fastq.gz
+Approx 30% complete for L29_R1_001_combined.fastq.gz
+Approx 35% complete for L29_R1_001_combined.fastq.gz
+Approx 40% complete for L29_R1_001_combined.fastq.gz
+Approx 45% complete for L29_R1_001_combined.fastq.gz
+Approx 50% complete for L29_R1_001_combined.fastq.gz
+Approx 55% complete for L29_R1_001_combined.fastq.gz
+Approx 60% complete for L29_R1_001_combined.fastq.gz
+Approx 65% complete for L29_R1_001_combined.fastq.gz
+Approx 70% complete for L29_R1_001_combined.fastq.gz
+Approx 75% complete for L29_R1_001_combined.fastq.gz
+Approx 80% complete for L29_R1_001_combined.fastq.gz
+Approx 85% complete for L29_R1_001_combined.fastq.gz
+Approx 90% complete for L29_R1_001_combined.fastq.gz
+Approx 95% complete for L29_R1_001_combined.fastq.gz
+To execute Trimmomatic run: java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar
+
+Currently Loaded Modules:
+  1) Java/17 -> Java/17.0.6   2) Trimmomatic/0.39-Java-17
+
+ 
+
+TrimmomaticSE: Started with arguments:
+ -threads 8 -trimlog L29_R1_001_combined_trim.log L29_R1_001_combined.fastq.gz trimmed.L29_R1_001_combined.fastq.gz ILLUMINACLIP:/mnt/research/zacharewski_lab/Scripts/RNAseq_STAR/NovogeneAdapters.fa:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36
+Using Long Clipping Sequence: 'AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT'
+Using Long Clipping Sequence: 'GATCGGAAGAGCACACGTCTGAACTCCAGTCACGGATGACTATCTCGTATGCCGTCTTCTGCTTG'
+ILLUMINACLIP: Using 0 prefix pairs, 2 forward/reverse sequences, 0 forward only sequences, 0 reverse only sequences
+Quality encoding detected as phred33
+Input Reads: 37187269 Surviving: 36398501 (97.88%) Dropped: 788768 (2.12%)
+TrimmomaticSE: Completed successfully
+mv: cannot stat '*trim*': No such file or directory
+
+Currently Loaded Modules:
+  1) Java/11 -> Java/11.0.20   2) FastQC/0.12.1-Java-11
+
+ 
+
+Skipping 'trimmed.L29_R1_001_combined.fastq.gz' which didn't exist, or couldn't be read
+mv: cannot stat '*fastqc*': No such file or directory
+mv: cannot move 'QC_and_Trim_Reports' to a subdirectory of itself, './QC_and_Trim_Reports/QC_and_Trim_Reports'

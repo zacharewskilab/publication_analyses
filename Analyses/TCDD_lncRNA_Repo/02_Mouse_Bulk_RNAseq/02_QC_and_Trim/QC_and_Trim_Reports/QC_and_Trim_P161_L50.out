@@ -1,0 +1,14 @@
+Running initial QC on files in /mnt/gs21/scratch/cholicog/Mouse/RAW_FASTQ/Consolidated
+Running FastQC on P161_L50_1.fq.gz and P161_L50_2.fq.gz
+application/gzip
+Analysis complete for P161_L50_1.fq.gz
+application/gzip
+Analysis complete for P161_L50_2.fq.gz
+First QC complete
+Trimming adapters from P161_L50_1.fq.gz and P161_L50_2.fq.gz
+Running FastQC on trimmed files
+application/gzip
+Analysis complete for trimmed.P161_L50_1.fq.gz
+application/gzip
+Analysis complete for trimmed.P161_L50_2.fq.gz
+Finished trimming and QC for P161_L50

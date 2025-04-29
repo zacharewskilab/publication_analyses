@@ -1,0 +1,9 @@
+	STAR --genomeDir /mnt/ufs18/home-183/cholicog/Jupyter_Notebooks/Working_lncRNA/00_Build_rn7_Genome_for_bulk_RNAseq/rn7_Genome --readFilesIn /mnt/gs21/scratch/cholicog/Rat/Concatenated/Trim_Files//trimmed.L55_R1_001_combined.fastq.gz --readFilesCommand gunzip -c --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --runThreadN 8 --outFileNamePrefix /mnt/gs21/scratch/cholicog/Rat/Alignment_Data_LiftOver//trimmed.L55_R1_001_combined_
+	STAR version: 2.7.11b   compiled: 2024-07-18T13:18:20-04:00 dev-intel14:/tmp/panchyni/easybuild/easybuild/build/STAR/2.7.11b/GCC-13.2.0/STAR-2.7.11b/source
+Mar 05 17:31:13 ..... started STAR run
+Mar 05 17:31:13 ..... loading genome
+Mar 05 17:31:48 ..... started mapping
+Mar 05 17:34:04 ..... finished mapping
+Mar 05 17:34:06 ..... started sorting BAM
+Mar 05 17:34:36 ..... finished successfully
+Finished aligning trimmed.L55_R1_001_combined

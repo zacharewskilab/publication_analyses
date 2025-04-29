@@ -1,0 +1,134 @@
+---
+title: "Deseq2 Analysis"
+output: html_document
+---
+
+#Load R Packages
+```{r}
+library(DESeq2)
+library(data.table)
+library(tibble)
+library(dplyr)
+library(tidyr)
+```
+
+
+```{r}
+### read in alignment files and combine into one table
+SRR_fn <- list.files("./STAR_Output")
+ReadsPerGene <- list()
+for (fn in SRR_fn){
+  # Remove "ReadsPerGene.out.tab" from the end of the filename
+  SRR <- gsub("^trimmed\\.|_combined_ReadsPerGene\\.out\\.tab$", "", fn)
+  ReadsPerGene[[SRR]] <- read.table(
+    file.path("./STAR_Output", fn),
+    sep = "\t",
+    skip = 4,
+    col.names = c("Symbol", "unstranded", "read_1", "read_2")
+  )
+}
+
+
+combined_df <- bind_rows(ReadsPerGene, .id = "SRR") %>%
+               select(SRR, Symbol, unstranded)
+
+# Transpose the data frame
+transposed_df <- combined_df %>%
+                 pivot_wider(names_from = "SRR", values_from = "unstranded") %>%
+                 column_to_rownames(var = "Symbol")
+
+
+```
+
+
+```{r}
+metadata <- read.table("Treatments_Metadata_Updated.txt", header = TRUE, sep = "\t") 
+metadata <- column_to_rownames(metadata, var = "ID")
+
+```
+
+
+```{r}
+### make sure metadata and alignment tables have correct order/correspondence
+all(rownames(metadata) == colnames(transposed_df))
+all(rownames(metadata) %in% colnames(transposed_df))
+
+colnames(transposed_df) <- rownames(metadata)
+```
+
+
+```{r}
+# Define the desired order of row names
+desired_order <- c("L01", "L02", "L03", "L28", "L29", "L07", "L08", "L34", "L35", "L36", "L11", "L12", "L37", "L38", "L39", "L13", "L15", "L40", "L41", "L42", "L16", "L17", "L18", "L43", "L44", "L19", "L20", "L21", "L47", "L48", "L22", "L24", "L49", "L50", "L51", "L25", "L27", "L52", "L53", "L54")
+
+# Reorder both data frames based on the desired order of row names
+transposed_df <- transposed_df[, desired_order]
+metadata <- metadata %>%
+            arrange(factor(rownames(metadata), levels = desired_order))
+```
+
+
+```{r}
+# Remove rows with a sum of 0
+transposed_df_no0 <- transposed_df[rowSums(transposed_df) != 0, ]
+
+#transposed_df_max5 <- transposed_df[, apply(transposed_df, 2, max) > 5, ]
+
+#transposed_df$max_value <- apply(transposed_df, 1, max)
+#transposed_df_filtered <- transposed_df[transposed_df$max_value >= 5, ]
+#transposed_df_filtered <- transposed_df_filtered[, -ncol(transposed_df_filtered)]
+
+metadata$Treatments <- as.factor(metadata$Treatments)
+
+```
+
+
+```{r}
+# Create DESeqDataSet object
+dds <- DESeqDataSetFromMatrix(countData = transposed_df_no0,
+                              colData = metadata,
+                              design = ~Treatments)
+```
+
+
+```{r}
+dds <- DESeq(dds)
+
+resultsNames(dds)
+colData(dds)
+```
+
+
+
+```{r}
+
+# Define the directory path
+output_dir <- "./Deseq2_Results/"
+
+# Check if the directory exists
+if (!dir.exists(output_dir)) {
+  # Create the directory if it doesn't exist
+  dir.create(output_dir)
+}
+
+# Define the treatment doses to compare against 0
+treatment_doses <- c("0.03", "0.1", "0.3", "1", "3", "10", "30")
+
+# Perform the DESeq2 analysis and save results for each treatment vs. 0
+for (dose in treatment_doses) {
+  # Perform the results comparison for each dose vs. 0
+  res <- results(dds, contrast = c('Treatments', dose, '0'))
+  
+  # Define the filename
+  filename <- paste0(output_dir, dose, "_vs_0.txt")
+  
+  # Save the results to a file
+  write.table(res, file = filename, sep = '\t', quote = FALSE)
+  
+  # Optionally, print a message to confirm the file was saved
+  print(paste("Saved results for dose", dose, "vs. 0 to", filename))
+}
+
+
+
+```

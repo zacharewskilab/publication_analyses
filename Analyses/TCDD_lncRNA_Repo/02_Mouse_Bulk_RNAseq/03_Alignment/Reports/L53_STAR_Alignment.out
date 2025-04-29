@@ -1,0 +1,9 @@
+	STAR --genomeDir /mnt/ufs18/home-183/cholicog/Jupyter_Notebooks/Working_lncRNA/00_Build_mm39_Genome_for_bulk_RNAseq/mm39_Genome --readFilesIn /mnt/gs21/scratch/cholicog/Mouse/RAW_FASTQ/Consolidated/Trim_Files/trimmed.P161_L53_1.fq.gz /mnt/gs21/scratch/cholicog/Mouse/RAW_FASTQ/Consolidated/Trim_Files/trimmed.P161_L53_2.fq.gz --readFilesCommand gunzip -c --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --runThreadN 8 --outFileNamePrefix /mnt/gs21/scratch/cholicog/Mouse/Alignment_Data//L53_
+	STAR version: 2.7.11b   compiled: 2024-07-18T13:18:20-04:00 dev-intel14:/tmp/panchyni/easybuild/easybuild/build/STAR/2.7.11b/GCC-13.2.0/STAR-2.7.11b/source
+Feb 25 14:29:05 ..... started STAR run
+Feb 25 14:29:05 ..... loading genome
+Feb 25 14:29:40 ..... started mapping
+Feb 25 14:36:09 ..... finished mapping
+Feb 25 14:36:11 ..... started sorting BAM
+Feb 25 14:36:55 ..... finished successfully
+Finished aligning L53

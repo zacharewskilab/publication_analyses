@@ -1,0 +1,91 @@
+---
+title: "Pseudobulk"
+output: html_document
+---
+
+#Load R Packages
+```{r}
+#used R 4.3.3
+
+library(reticulate)
+library(scater)
+library(SingleCellExperiment)
+library(zellkonverter)
+library(data.table)
+library(tibble)
+library(dplyr)
+```
+
+
+#Load Python Directory
+```{r}
+use_python("/mnt/ufs18/home-183/cholicog/anaconda3/envs/scvi/bin/python")
+```
+
+#Load Python Packages
+```{r}
+ad <- import("anndata")
+```
+
+#Import Data
+```{r}
+adata <- ad$read_h5ad("/mnt/home/cholicog/Jupyter_Notebooks/Working_lncRNA/01_Mouse_snRNAseq/01a_RDDR_snRNAseq/03_Libraries_Integration_and_Analysis/Adata_Objects/02b_RDDR_AllGenes_Clustered_And_Annotated_Cells.h5ad")
+```
+
+#Check if results subdirectory is made
+```{r}
+# Check if the "Results" directory exists
+if (!file.exists("Results")) {
+  # If it doesn't exist, create the "Results" directory
+  dir.create("Results")
+  cat("Directory 'Results' created.\n")
+} else {
+  cat("Directory 'Results' already exists.\n")
+}
+if (!file.exists("Results/03a_Pseudobulk_Sums")) {
+  # If it doesn't exist, create the "Results" directory
+  dir.create("Results/03a_Pseudobulk_Sums")
+  cat("Directory 'Results/03a_Pseudobulk_Sums' created.\n")
+} else {
+  cat("Directory 'Results/03a_Pseudobulk_Sums' already exists.\n")
+}
+
+
+```
+
+
+
+# Convert Anndata to SingleCell Experiment Format and Create Pseudobulk Data
+```{r}
+sce <- zellkonverter::AnnData2SCE(
+                            adata,
+                            X_name = NULL,
+                            layers = TRUE,
+                            uns = FALSE,
+                            var = TRUE,
+                            obs = TRUE,
+                            varm = FALSE,
+                            obsm = FALSE,
+                            varp = FALSE,
+                            obsp = FALSE,
+                            raw = FALSE,
+                            skip_assays = FALSE,
+                            hdf5_backed = FALSE,
+                            verbose = TRUE
+                            )
+
+
+#Export sample names
+ids <- sce$OrigIdent_Celltype
+
+# Aggregate expression values by sample ID
+pseudobulk <- aggregateAcrossCells(sce, ids, statistics="sum")
+
+# Export 'pseudobulk' in RDS format
+saveRDS(pseudobulk, file = "Results/03a_Pseudobulk_Sums/pseudobulk_sums.rds")
+
+# Print the pseudobulk data
+print(pseudobulk)
+```
+
+

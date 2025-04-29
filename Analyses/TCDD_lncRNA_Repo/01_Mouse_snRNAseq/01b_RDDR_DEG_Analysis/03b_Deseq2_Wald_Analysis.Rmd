@@ -1,0 +1,1003 @@
+---
+title: "Pseudobulk"
+output: html_document
+---
+
+#Load R Packages
+```{r}
+library(DESeq2)
+library(SingleCellExperiment)
+library(data.table)
+library(tibble)
+library(dplyr)
+```
+
+
+```{r}
+# Load the saved RDS file
+pseudobulk <- readRDS("Results/03a_Pseudobulk_Sums/pseudobulk_sums.rds")
+```
+
+
+```{r}
+# Make a copy of the pseudobulk data and convert the 'Dose' column to a factor
+pseudobulk2 <- pseudobulk
+pseudobulk2$Dose <- as.factor(pseudobulk2$Dose)
+
+# Export the pseudobulk data as a dataframe and save it as a tab-separated file
+pb_export <- as.data.frame(pseudobulk2@assays@data@listData$counts)
+write.table(pb_export, file = "Results/03a_Pseudobulk_Sums/pseudobulk_sums.txt", sep = "\t", row.names = TRUE, col.names = TRUE)
+
+# Reindex the rows (Library_Celltype) and reorder columns alphabetically (Genes)
+pb_export <- tibble::rownames_to_column(pb_export, var = "Index")
+pb_export <- pb_export[ ,order(colnames(pb_export))]
+
+# Create a metadata dataframe and trim it down to include only specific columns
+#metadata <- colData(unique(pseudobulk2$OrigIdent))
+metadata <- colData(pseudobulk2)
+metadata2 <- metadata[c('OrigIdent_Celltype', 'Dose', 'OrigIdent', 'Celltype')]
+metadata5 <- metadata2
+
+# Reindex the metadata dataframe and reorder columns based on the 'OrigIdent_Celltype' column
+row.names(metadata5) <- metadata5$OrigIdent_Celltype
+metadata5 <- metadata5[order(metadata5$OrigIdent_Celltype),]
+
+```
+
+
+```{r}
+if (!file.exists("Results/03b_Deseq2_Output")) {
+  # If it doesn't exist, create the "Results" directory
+  dir.create("Results/03b_Deseq2_Output")
+  cat("Directory 'Results/03b_Deseq2_Output' created.\n")
+} else {
+  cat("Directory 'Results/03b_Deseq2_Output' already exists.\n")
+}
+```
+
+
+####################
+### B Cells
+####################
+```{r}
+Celltype_Of_Interest <- "B Cells"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)
+
+# Retrieve the 'Index' column from pb_export dataframe
+index_col <- pb_export$Index
+
+# Select columns containing the cell type of interest and combine with the 'Index' column
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+head(pb_export_subset)
+
+# Set row names of pb_export_subset to the 'Index' column values and remove 'Index' column
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate row sums of pb_export_subset
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column named 'RowSums' to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with row sums greater than or equal to 50
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows of pb_export_subset_50count based on descending 'RowSums'
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+# Calculate the threshold for removing the bottom 10% of rows based on 'RowSums'
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows from pb_export_subset_50count based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+# Drop the 'RowSums' column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+# Add 'Symbol' column with row names to pb_export_subset_50count_trimmed dataframe
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+head(pb_export_subset_50count_trimmed)
+
+# Filter metadata5 to include rows with 'OrigIdent_Celltype' containing the cell type of interest
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Celltype), ]
+head(metadata5_subset)
+
+# Perform DESeq2 analysis using pb_export_subset_50count_trimmed and metadata5_subset
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose, 
+                               tidy = TRUE)
+dds <- DESeq(dds)
+
+
+resultsNames(dds)
+colData(dds)
+
+
+# Print each Results
+res.0.01 <- results(dds, contrast = c('Dose', '0.01', '0'))
+write.table(res.0.01, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.01_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.03 <- results(dds, contrast = c('Dose', '0.03', '0'))
+write.table(res.0.03, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.03_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.1 <- results(dds, contrast = c('Dose', '0.1', '0'))
+write.table(res.0.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.1_v_0.txt"), sep = '\t', quote = FALSE)
+ 
+res.0.3 <- results(dds, contrast = c('Dose', '0.3', '0'))
+write.table(res.0.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.1 <- results(dds, contrast = c('Dose', '1', '0'))
+write.table(res.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_1_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.3 <- results(dds, contrast = c('Dose', '3', '0'))
+write.table(res.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.10 <- results(dds, contrast = c('Dose', '10', '0'))
+write.table(res.10, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_10_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.30 <- results(dds, contrast = c('Dose', '30', '0'))
+write.table(res.30, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_30_v_0.txt"), sep = '\t', quote = FALSE)
+```
+
+
+####################
+### Cholangiocytes
+####################
+```{r}
+Celltype_Of_Interest <- "Cholangiocytes"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)
+
+# Retrieve the 'Index' column from pb_export dataframe
+index_col <- pb_export$Index
+
+# Select columns containing the cell type of interest and combine with the 'Index' column
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+head(pb_export_subset)
+
+# Set row names of pb_export_subset to the 'Index' column values and remove 'Index' column
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate row sums of pb_export_subset
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column named 'RowSums' to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with row sums greater than or equal to 50
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows of pb_export_subset_50count based on descending 'RowSums'
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+# Calculate the threshold for removing the bottom 10% of rows based on 'RowSums'
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows from pb_export_subset_50count based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+# Drop the 'RowSums' column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+# Add 'Symbol' column with row names to pb_export_subset_50count_trimmed dataframe
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+head(pb_export_subset_50count_trimmed)
+
+# Filter metadata5 to include rows with 'OrigIdent_Celltype' containing the cell type of interest
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Celltype), ]
+head(metadata5_subset)
+
+# Perform DESeq2 analysis using pb_export_subset_50count_trimmed and metadata5_subset
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose, 
+                               tidy = TRUE)
+dds <- DESeq(dds)
+
+
+resultsNames(dds)
+colData(dds)
+
+
+# Print each Results
+res.0.01 <- results(dds, contrast = c('Dose', '0.01', '0'))
+write.table(res.0.01, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.01_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.03 <- results(dds, contrast = c('Dose', '0.03', '0'))
+write.table(res.0.03, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.03_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.1 <- results(dds, contrast = c('Dose', '0.1', '0'))
+write.table(res.0.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.1_v_0.txt"), sep = '\t', quote = FALSE)
+ 
+res.0.3 <- results(dds, contrast = c('Dose', '0.3', '0'))
+write.table(res.0.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.1 <- results(dds, contrast = c('Dose', '1', '0'))
+write.table(res.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_1_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.3 <- results(dds, contrast = c('Dose', '3', '0'))
+write.table(res.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.10 <- results(dds, contrast = c('Dose', '10', '0'))
+write.table(res.10, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_10_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.30 <- results(dds, contrast = c('Dose', '30', '0'))
+write.table(res.30, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_30_v_0.txt"), sep = '\t', quote = FALSE)
+```
+####################
+### Centrilobular Hepatocytes
+####################
+```{r}
+Celltype_Of_Interest <- "Centrilobular Hepatocytes"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)
+
+# Retrieve the 'Index' column from pb_export dataframe
+index_col <- pb_export$Index
+
+# Select columns containing the cell type of interest and combine with the 'Index' column
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+head(pb_export_subset)
+
+# Set row names of pb_export_subset to the 'Index' column values and remove 'Index' column
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate row sums of pb_export_subset
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column named 'RowSums' to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with row sums greater than or equal to 50
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows of pb_export_subset_50count based on descending 'RowSums'
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+# Calculate the threshold for removing the bottom 10% of rows based on 'RowSums'
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows from pb_export_subset_50count based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+# Drop the 'RowSums' column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+# Add 'Symbol' column with row names to pb_export_subset_50count_trimmed dataframe
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+head(pb_export_subset_50count_trimmed)
+
+# Filter metadata5 to include rows with 'OrigIdent_Celltype' containing the cell type of interest
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Celltype), ]
+head(metadata5_subset)
+
+# Perform DESeq2 analysis using pb_export_subset_50count_trimmed and metadata5_subset
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose, 
+                               tidy = TRUE)
+dds <- DESeq(dds)
+
+
+resultsNames(dds)
+colData(dds)
+
+
+# Print each Results
+res.0.01 <- results(dds, contrast = c('Dose', '0.01', '0'))
+write.table(res.0.01, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.01_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.03 <- results(dds, contrast = c('Dose', '0.03', '0'))
+write.table(res.0.03, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.03_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.1 <- results(dds, contrast = c('Dose', '0.1', '0'))
+write.table(res.0.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.1_v_0.txt"), sep = '\t', quote = FALSE)
+ 
+res.0.3 <- results(dds, contrast = c('Dose', '0.3', '0'))
+write.table(res.0.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.1 <- results(dds, contrast = c('Dose', '1', '0'))
+write.table(res.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_1_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.3 <- results(dds, contrast = c('Dose', '3', '0'))
+write.table(res.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.10 <- results(dds, contrast = c('Dose', '10', '0'))
+write.table(res.10, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_10_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.30 <- results(dds, contrast = c('Dose', '30', '0'))
+write.table(res.30, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_30_v_0.txt"), sep = '\t', quote = FALSE)
+```
+
+####################
+### Periportal Hepatocytes
+####################
+```{r}
+Celltype_Of_Interest <- "Periportal Hepatocytes"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)
+
+# Retrieve the 'Index' column from pb_export dataframe
+index_col <- pb_export$Index
+
+# Select columns containing the cell type of interest and combine with the 'Index' column
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+head(pb_export_subset)
+
+# Set row names of pb_export_subset to the 'Index' column values and remove 'Index' column
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate row sums of pb_export_subset
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column named 'RowSums' to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with row sums greater than or equal to 50
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows of pb_export_subset_50count based on descending 'RowSums'
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+# Calculate the threshold for removing the bottom 10% of rows based on 'RowSums'
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows from pb_export_subset_50count based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+# Drop the 'RowSums' column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+# Add 'Symbol' column with row names to pb_export_subset_50count_trimmed dataframe
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+head(pb_export_subset_50count_trimmed)
+
+# Filter metadata5 to include rows with 'OrigIdent_Celltype' containing the cell type of interest
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Celltype), ]
+head(metadata5_subset)
+
+# Perform DESeq2 analysis using pb_export_subset_50count_trimmed and metadata5_subset
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose, 
+                               tidy = TRUE)
+dds <- DESeq(dds)
+
+
+resultsNames(dds)
+colData(dds)
+
+
+# Print each Results
+res.0.01 <- results(dds, contrast = c('Dose', '0.01', '0'))
+write.table(res.0.01, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.01_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.03 <- results(dds, contrast = c('Dose', '0.03', '0'))
+write.table(res.0.03, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.03_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.1 <- results(dds, contrast = c('Dose', '0.1', '0'))
+write.table(res.0.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.1_v_0.txt"), sep = '\t', quote = FALSE)
+ 
+res.0.3 <- results(dds, contrast = c('Dose', '0.3', '0'))
+write.table(res.0.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.1 <- results(dds, contrast = c('Dose', '1', '0'))
+write.table(res.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_1_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.3 <- results(dds, contrast = c('Dose', '3', '0'))
+write.table(res.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.10 <- results(dds, contrast = c('Dose', '10', '0'))
+write.table(res.10, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_10_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.30 <- results(dds, contrast = c('Dose', '30', '0'))
+write.table(res.30, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_30_v_0.txt"), sep = '\t', quote = FALSE)
+```
+
+####################
+### HSCs
+####################
+```{r}
+Celltype_Of_Interest <- "HSCs"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)
+
+# Retrieve the 'Index' column from pb_export dataframe
+index_col <- pb_export$Index
+
+# Select columns containing the cell type of interest and combine with the 'Index' column
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+head(pb_export_subset)
+
+# Set row names of pb_export_subset to the 'Index' column values and remove 'Index' column
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate row sums of pb_export_subset
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column named 'RowSums' to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with row sums greater than or equal to 50
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows of pb_export_subset_50count based on descending 'RowSums'
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+# Calculate the threshold for removing the bottom 10% of rows based on 'RowSums'
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows from pb_export_subset_50count based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+# Drop the 'RowSums' column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+# Add 'Symbol' column with row names to pb_export_subset_50count_trimmed dataframe
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+head(pb_export_subset_50count_trimmed)
+
+# Filter metadata5 to include rows with 'OrigIdent_Celltype' containing the cell type of interest
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Celltype), ]
+head(metadata5_subset)
+
+# Perform DESeq2 analysis using pb_export_subset_50count_trimmed and metadata5_subset
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose, 
+                               tidy = TRUE)
+dds <- DESeq(dds)
+
+
+resultsNames(dds)
+colData(dds)
+
+
+# Print each Results
+res.0.01 <- results(dds, contrast = c('Dose', '0.01', '0'))
+write.table(res.0.01, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.01_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.03 <- results(dds, contrast = c('Dose', '0.03', '0'))
+write.table(res.0.03, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.03_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.1 <- results(dds, contrast = c('Dose', '0.1', '0'))
+write.table(res.0.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.1_v_0.txt"), sep = '\t', quote = FALSE)
+ 
+res.0.3 <- results(dds, contrast = c('Dose', '0.3', '0'))
+write.table(res.0.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.1 <- results(dds, contrast = c('Dose', '1', '0'))
+write.table(res.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_1_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.3 <- results(dds, contrast = c('Dose', '3', '0'))
+write.table(res.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.10 <- results(dds, contrast = c('Dose', '10', '0'))
+write.table(res.10, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_10_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.30 <- results(dds, contrast = c('Dose', '30', '0'))
+write.table(res.30, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_30_v_0.txt"), sep = '\t', quote = FALSE)
+```
+
+####################
+### LSECs
+####################
+```{r}
+Celltype_Of_Interest <- "LSECs"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)
+
+# Retrieve the 'Index' column from pb_export dataframe
+index_col <- pb_export$Index
+
+# Select columns containing the cell type of interest and combine with the 'Index' column
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+head(pb_export_subset)
+
+# Set row names of pb_export_subset to the 'Index' column values and remove 'Index' column
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate row sums of pb_export_subset
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column named 'RowSums' to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with row sums greater than or equal to 50
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows of pb_export_subset_50count based on descending 'RowSums'
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+# Calculate the threshold for removing the bottom 10% of rows based on 'RowSums'
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows from pb_export_subset_50count based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+# Drop the 'RowSums' column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+# Add 'Symbol' column with row names to pb_export_subset_50count_trimmed dataframe
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+head(pb_export_subset_50count_trimmed)
+
+# Filter metadata5 to include rows with 'OrigIdent_Celltype' containing the cell type of interest
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Celltype), ]
+head(metadata5_subset)
+
+# Perform DESeq2 analysis using pb_export_subset_50count_trimmed and metadata5_subset
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose, 
+                               tidy = TRUE)
+dds <- DESeq(dds)
+
+
+resultsNames(dds)
+colData(dds)
+
+
+# Print each Results
+res.0.01 <- results(dds, contrast = c('Dose', '0.01', '0'))
+write.table(res.0.01, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.01_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.03 <- results(dds, contrast = c('Dose', '0.03', '0'))
+write.table(res.0.03, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.03_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.1 <- results(dds, contrast = c('Dose', '0.1', '0'))
+write.table(res.0.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.1_v_0.txt"), sep = '\t', quote = FALSE)
+ 
+res.0.3 <- results(dds, contrast = c('Dose', '0.3', '0'))
+write.table(res.0.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.1 <- results(dds, contrast = c('Dose', '1', '0'))
+write.table(res.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_1_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.3 <- results(dds, contrast = c('Dose', '3', '0'))
+write.table(res.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.10 <- results(dds, contrast = c('Dose', '10', '0'))
+write.table(res.10, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_10_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.30 <- results(dds, contrast = c('Dose', '30', '0'))
+write.table(res.30, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_30_v_0.txt"), sep = '\t', quote = FALSE)
+```
+
+####################
+### Macrophages
+####################
+```{r}
+Celltype_Of_Interest <- "Macrophages"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)
+
+# Retrieve the 'Index' column from pb_export dataframe
+index_col <- pb_export$Index
+
+# Select columns containing the cell type of interest and combine with the 'Index' column
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+head(pb_export_subset)
+
+# Set row names of pb_export_subset to the 'Index' column values and remove 'Index' column
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate row sums of pb_export_subset
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column named 'RowSums' to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with row sums greater than or equal to 50
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows of pb_export_subset_50count based on descending 'RowSums'
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+# Calculate the threshold for removing the bottom 10% of rows based on 'RowSums'
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows from pb_export_subset_50count based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+# Drop the 'RowSums' column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+# Add 'Symbol' column with row names to pb_export_subset_50count_trimmed dataframe
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+head(pb_export_subset_50count_trimmed)
+
+# Filter metadata5 to include rows with 'OrigIdent_Celltype' containing the cell type of interest
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Celltype), ]
+head(metadata5_subset)
+
+# Perform DESeq2 analysis using pb_export_subset_50count_trimmed and metadata5_subset
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose, 
+                               tidy = TRUE)
+dds <- DESeq(dds)
+
+
+resultsNames(dds)
+colData(dds)
+
+
+# Print each Results
+res.0.01 <- results(dds, contrast = c('Dose', '0.01', '0'))
+write.table(res.0.01, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.01_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.03 <- results(dds, contrast = c('Dose', '0.03', '0'))
+write.table(res.0.03, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.03_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.1 <- results(dds, contrast = c('Dose', '0.1', '0'))
+write.table(res.0.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.1_v_0.txt"), sep = '\t', quote = FALSE)
+ 
+res.0.3 <- results(dds, contrast = c('Dose', '0.3', '0'))
+write.table(res.0.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.1 <- results(dds, contrast = c('Dose', '1', '0'))
+write.table(res.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_1_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.3 <- results(dds, contrast = c('Dose', '3', '0'))
+write.table(res.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.10 <- results(dds, contrast = c('Dose', '10', '0'))
+write.table(res.10, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_10_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.30 <- results(dds, contrast = c('Dose', '30', '0'))
+write.table(res.30, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_30_v_0.txt"), sep = '\t', quote = FALSE)
+```
+
+####################
+### Neutrophils
+####################
+```{r}
+Celltype_Of_Interest <- "Neutrophils"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)
+
+# Retrieve the 'Index' column from pb_export dataframe
+index_col <- pb_export$Index
+
+# Select columns containing the cell type of interest and combine with the 'Index' column
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+head(pb_export_subset)
+
+# Set row names of pb_export_subset to the 'Index' column values and remove 'Index' column
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate row sums of pb_export_subset
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column named 'RowSums' to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with row sums greater than or equal to 50
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows of pb_export_subset_50count based on descending 'RowSums'
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+# Calculate the threshold for removing the bottom 10% of rows based on 'RowSums'
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows from pb_export_subset_50count based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+# Drop the 'RowSums' column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+# Add 'Symbol' column with row names to pb_export_subset_50count_trimmed dataframe
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+head(pb_export_subset_50count_trimmed)
+
+# Filter metadata5 to include rows with 'OrigIdent_Celltype' containing the cell type of interest
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Celltype), ]
+head(metadata5_subset)
+
+# Perform DESeq2 analysis using pb_export_subset_50count_trimmed and metadata5_subset
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose, 
+                               tidy = TRUE)
+dds <- DESeq(dds)
+
+
+resultsNames(dds)
+colData(dds)
+
+
+# Print each Results
+res.0.01 <- results(dds, contrast = c('Dose', '0.01', '0'))
+write.table(res.0.01, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.01_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.03 <- results(dds, contrast = c('Dose', '0.03', '0'))
+write.table(res.0.03, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.03_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.1 <- results(dds, contrast = c('Dose', '0.1', '0'))
+write.table(res.0.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.1_v_0.txt"), sep = '\t', quote = FALSE)
+ 
+res.0.3 <- results(dds, contrast = c('Dose', '0.3', '0'))
+write.table(res.0.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.1 <- results(dds, contrast = c('Dose', '1', '0'))
+write.table(res.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_1_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.3 <- results(dds, contrast = c('Dose', '3', '0'))
+write.table(res.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.10 <- results(dds, contrast = c('Dose', '10', '0'))
+write.table(res.10, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_10_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.30 <- results(dds, contrast = c('Dose', '30', '0'))
+write.table(res.30, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_30_v_0.txt"), sep = '\t', quote = FALSE)
+```
+
+####################
+### pDCs
+####################
+```{r}
+Celltype_Of_Interest <- "pDCs"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)
+
+# Retrieve the 'Index' column from pb_export dataframe
+index_col <- pb_export$Index
+
+# Select columns containing the cell type of interest and combine with the 'Index' column
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+head(pb_export_subset)
+
+# Set row names of pb_export_subset to the 'Index' column values and remove 'Index' column
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate row sums of pb_export_subset
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column named 'RowSums' to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with row sums greater than or equal to 50
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows of pb_export_subset_50count based on descending 'RowSums'
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+# Calculate the threshold for removing the bottom 10% of rows based on 'RowSums'
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows from pb_export_subset_50count based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+# Drop the 'RowSums' column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+# Add 'Symbol' column with row names to pb_export_subset_50count_trimmed dataframe
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+head(pb_export_subset_50count_trimmed)
+
+# Filter metadata5 to include rows with 'OrigIdent_Celltype' containing the cell type of interest
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Celltype), ]
+head(metadata5_subset)
+
+# Perform DESeq2 analysis using pb_export_subset_50count_trimmed and metadata5_subset
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose, 
+                               tidy = TRUE)
+dds <- DESeq(dds)
+
+
+resultsNames(dds)
+colData(dds)
+
+
+# Print each Results
+res.0.01 <- results(dds, contrast = c('Dose', '0.01', '0'))
+write.table(res.0.01, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.01_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.03 <- results(dds, contrast = c('Dose', '0.03', '0'))
+write.table(res.0.03, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.03_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.1 <- results(dds, contrast = c('Dose', '0.1', '0'))
+write.table(res.0.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.1_v_0.txt"), sep = '\t', quote = FALSE)
+ 
+res.0.3 <- results(dds, contrast = c('Dose', '0.3', '0'))
+write.table(res.0.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.1 <- results(dds, contrast = c('Dose', '1', '0'))
+write.table(res.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_1_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.3 <- results(dds, contrast = c('Dose', '3', '0'))
+write.table(res.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.10 <- results(dds, contrast = c('Dose', '10', '0'))
+write.table(res.10, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_10_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.30 <- results(dds, contrast = c('Dose', '30', '0'))
+write.table(res.30, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_30_v_0.txt"), sep = '\t', quote = FALSE)
+```
+
+####################
+### PFs
+####################
+```{r}
+Celltype_Of_Interest <- "PFs"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)
+
+# Retrieve the 'Index' column from pb_export dataframe
+index_col <- pb_export$Index
+
+# Select columns containing the cell type of interest and combine with the 'Index' column
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+head(pb_export_subset)
+
+# Set row names of pb_export_subset to the 'Index' column values and remove 'Index' column
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate row sums of pb_export_subset
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column named 'RowSums' to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with row sums greater than or equal to 50
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows of pb_export_subset_50count based on descending 'RowSums'
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+# Calculate the threshold for removing the bottom 10% of rows based on 'RowSums'
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows from pb_export_subset_50count based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+# Drop the 'RowSums' column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+# Add 'Symbol' column with row names to pb_export_subset_50count_trimmed dataframe
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+head(pb_export_subset_50count_trimmed)
+
+# Filter metadata5 to include rows with 'OrigIdent_Celltype' containing the cell type of interest
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Celltype), ]
+head(metadata5_subset)
+
+# Perform DESeq2 analysis using pb_export_subset_50count_trimmed and metadata5_subset
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose, 
+                               tidy = TRUE)
+dds <- DESeq(dds)
+
+
+resultsNames(dds)
+colData(dds)
+
+
+# Print each Results
+res.0.01 <- results(dds, contrast = c('Dose', '0.01', '0'))
+write.table(res.0.01, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.01_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.03 <- results(dds, contrast = c('Dose', '0.03', '0'))
+write.table(res.0.03, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.03_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.1 <- results(dds, contrast = c('Dose', '0.1', '0'))
+write.table(res.0.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.1_v_0.txt"), sep = '\t', quote = FALSE)
+ 
+res.0.3 <- results(dds, contrast = c('Dose', '0.3', '0'))
+write.table(res.0.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.1 <- results(dds, contrast = c('Dose', '1', '0'))
+write.table(res.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_1_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.3 <- results(dds, contrast = c('Dose', '3', '0'))
+write.table(res.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.10 <- results(dds, contrast = c('Dose', '10', '0'))
+write.table(res.10, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_10_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.30 <- results(dds, contrast = c('Dose', '30', '0'))
+write.table(res.30, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_30_v_0.txt"), sep = '\t', quote = FALSE)
+```
+
+####################
+### T Cells
+####################
+```{r}
+Celltype_Of_Interest <- "T Cells"
+Celltype_Of_Interest.NoSpace <- gsub(" ", "_", Celltype_Of_Interest)
+
+# Retrieve the 'Index' column from pb_export dataframe
+index_col <- pb_export$Index
+
+# Select columns containing the cell type of interest and combine with the 'Index' column
+pb_export_subset <- pb_export %>% select(contains(Celltype_Of_Interest))
+pb_export_subset <- cbind(Index = index_col, pb_export_subset)
+head(pb_export_subset)
+
+# Set row names of pb_export_subset to the 'Index' column values and remove 'Index' column
+row.names(pb_export_subset) <- pb_export_subset$Index
+pb_export_subset <- pb_export_subset[, -1]
+
+# Calculate row sums of pb_export_subset
+row_sums <- rowSums(pb_export_subset)
+
+# Add row sums as a new column named 'RowSums' to pb_export_subset
+pb_export_subset$RowSums <- row_sums
+
+# Filter rows with row sums greater than or equal to 50
+pb_export_subset_50count <- subset(pb_export_subset, RowSums >= 50)
+
+# Reorder rows of pb_export_subset_50count based on descending 'RowSums'
+pb_export_subset_50count <- pb_export_subset_50count %>% arrange(desc(RowSums))
+
+# Calculate the threshold for removing the bottom 10% of rows based on 'RowSums'
+threshold <- quantile(pb_export_subset_50count$RowSums, 0.1)
+
+# Remove the bottom 10% of rows from pb_export_subset_50count based on the threshold
+pb_export_subset_50count_trimmed <- pb_export_subset_50count[pb_export_subset_50count$RowSums >= threshold, ]
+
+# Drop the 'RowSums' column from pb_export_subset_50count_trimmed
+pb_export_subset_50count_trimmed <- subset(pb_export_subset_50count_trimmed, select = -c(RowSums))
+
+# Add 'Symbol' column with row names to pb_export_subset_50count_trimmed dataframe
+pb_export_subset_50count_trimmed <- rownames_to_column(pb_export_subset_50count_trimmed, var="Symbol")
+head(pb_export_subset_50count_trimmed)
+
+# Filter metadata5 to include rows with 'OrigIdent_Celltype' containing the cell type of interest
+metadata5_subset <- metadata5[grepl(Celltype_Of_Interest, metadata5$OrigIdent_Celltype), ]
+head(metadata5_subset)
+
+# Perform DESeq2 analysis using pb_export_subset_50count_trimmed and metadata5_subset
+dds  <- DESeqDataSetFromMatrix(countData=pb_export_subset_50count_trimmed, 
+                               colData=metadata5_subset, 
+                               design= ~ Dose, 
+                               tidy = TRUE)
+dds <- DESeq(dds)
+
+
+resultsNames(dds)
+colData(dds)
+
+
+# Print each Results
+res.0.01 <- results(dds, contrast = c('Dose', '0.01', '0'))
+write.table(res.0.01, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.01_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.03 <- results(dds, contrast = c('Dose', '0.03', '0'))
+write.table(res.0.03, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.03_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.0.1 <- results(dds, contrast = c('Dose', '0.1', '0'))
+write.table(res.0.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.1_v_0.txt"), sep = '\t', quote = FALSE)
+ 
+res.0.3 <- results(dds, contrast = c('Dose', '0.3', '0'))
+write.table(res.0.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_0.3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.1 <- results(dds, contrast = c('Dose', '1', '0'))
+write.table(res.1, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_1_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.3 <- results(dds, contrast = c('Dose', '3', '0'))
+write.table(res.3, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_3_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.10 <- results(dds, contrast = c('Dose', '10', '0'))
+write.table(res.10, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_10_v_0.txt"), sep = '\t', quote = FALSE)
+
+res.30 <- results(dds, contrast = c('Dose', '30', '0'))
+write.table(res.30, file = paste0("Results/03b_Deseq2_Output/", Celltype_Of_Interest.NoSpace, "_30_v_0.txt"), sep = '\t', quote = FALSE)
+```

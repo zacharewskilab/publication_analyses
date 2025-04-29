@@ -1,0 +1,62 @@
+Thu Mar 13 02:39:37 PM EDT 2025
+Thu Mar 13 02:39:37 PM EDT 2025
+Thu Mar 13 02:39:37 PM EDT 2025
+Martian Runtime - v4.0.12
+Serving UI at http://acm-008:41489?auth=GRX-j0kW2qtZ8rTvj4rniFoMTDzEua39Nen7r-gXlMY
+
+Running preflight checks (please wait)...
+2025-03-13 14:39:38 [runtime] (ready)           ID.mkref_mm39_genome.MAKE_REFERENCE._MAKE_REFERENCE
+2025-03-13 14:39:38 [runtime] (run:local)       ID.mkref_mm39_genome.MAKE_REFERENCE._MAKE_REFERENCE.fork0.split
+2025-03-13 14:39:43 [runtime] (split_complete)  ID.mkref_mm39_genome.MAKE_REFERENCE._MAKE_REFERENCE
+2025-03-13 14:39:43 [runtime] (run:local)       ID.mkref_mm39_genome.MAKE_REFERENCE._MAKE_REFERENCE.fork0.join
+2025-03-13 14:45:45 [runtime] (update)          ID.mkref_mm39_genome.MAKE_REFERENCE._MAKE_REFERENCE.fork0 join_running
+2025-03-13 14:51:46 [runtime] (update)          ID.mkref_mm39_genome.MAKE_REFERENCE._MAKE_REFERENCE.fork0 join_running
+2025-03-13 14:57:46 [runtime] (update)          ID.mkref_mm39_genome.MAKE_REFERENCE._MAKE_REFERENCE.fork0 join_running
+2025-03-13 15:03:45 [runtime] (update)          ID.mkref_mm39_genome.MAKE_REFERENCE._MAKE_REFERENCE.fork0 join_running
+2025-03-13 15:07:25 [runtime] (join_complete)   ID.mkref_mm39_genome.MAKE_REFERENCE._MAKE_REFERENCE
+
+Outputs:
+- reference: /mnt/home/cholicog/Jupyter_Notebooks/Working_lncRNA/00_Build_mm39_Genome_for_snRNAseq/mkref_mm39_genome/outs/reference
+
+Waiting 6 seconds for UI to do final refresh.
+Pipestance completed successfully!
+
+2025-03-13 15:07:32 Shutting down.
+Saving pipestance info to "mkref_mm39_genome/mkref_mm39_genome.mri.tgz"
+>>> Reference successfully created! <<<
+You can now specify this reference on the command line:
+cellranger count --transcriptome=mm39_genome ...
+JobId=51926410 JobName=Ref_Genome
+   UserId=cholicog(1058576) GroupId=biochem(2005) MCS_label=N/A
+   Priority=19497 Nice=0 Account=toxicogenomics QOS=normal
+   JobState=RUNNING Reason=None Dependency=(null)
+   Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0
+   RunTime=00:28:02 TimeLimit=02:00:00 TimeMin=N/A
+   SubmitTime=2025-03-13T14:39:26 EligibleTime=2025-03-13T14:39:26
+   AccrueTime=2025-03-13T14:39:26
+   StartTime=2025-03-13T14:39:31 EndTime=2025-03-13T16:39:31 Deadline=N/A
+   SuspendTime=None SecsPreSuspend=0 LastSchedEval=2025-03-13T14:39:31 Scheduler=Main
+   Partition=toxicogenomics AllocNode:Sid=dev-intel18:422131
+   ReqNodeList=(null) ExcNodeList=(null)
+   NodeList=acm-008
+   BatchHost=acm-008
+   NumNodes=1 NumCPUs=100 NumTasks=10 CPUs/Task=10 ReqB:S:C:T=0:0:*:*
+   ReqTRES=cpu=100,mem=100G,node=1,billing=15564
+   AllocTRES=cpu=100,mem=100G,node=1,billing=15564
+   Socks/Node=* NtasksPerN:B:S:C=10:0:*:* CoreSpec=*
+   MinCPUsNode=100 MinMemoryNode=100G MinTmpDiskNode=0
+   Features=[intel16|intel18|(amr|acm)|nvf|nal|nif|agg|agx|(nfh|neh)|nel] DelayBoot=00:00:00
+   OverSubscribe=OK Contiguous=0 Licenses=(null) Network=(null)
+   Command=/mnt/ufs18/home-183/cholicog/Jupyter_Notebooks/Working_lncRNA/00_Build_mm39_Genome_for_snRNAseq/02_Build_Custom_Ref_Genome.sbatch
+   WorkDir=/mnt/ufs18/home-183/cholicog/Jupyter_Notebooks/Working_lncRNA/00_Build_mm39_Genome_for_snRNAseq
+   Comment=stdout=/mnt/ufs18/home-183/cholicog/Jupyter_Notebooks/Working_lncRNA/00_Build_mm39_Genome_for_snRNAseq/Ref_Genome.out 
+   StdErr=/mnt/ufs18/home-183/cholicog/Jupyter_Notebooks/Working_lncRNA/00_Build_mm39_Genome_for_snRNAseq/Ref_Genome.err
+   StdIn=/dev/null
+   StdOut=/mnt/ufs18/home-183/cholicog/Jupyter_Notebooks/Working_lncRNA/00_Build_mm39_Genome_for_snRNAseq/Ref_Genome.out
+   TresPerTask=cpu=10
+   
+
+Thu Mar 13 03:07:33 PM EDT 2025
+Thu Mar 13 03:07:33 PM EDT 2025
+Thu Mar 13 03:07:33 PM EDT 2025
+Done

@@ -1,0 +1,239 @@
+STAR version=2.7.11b
+STAR compilation time,server,dir=2024-07-18T13:18:20-04:00 dev-intel14:/tmp/panchyni/easybuild/easybuild/build/STAR/2.7.11b/GCC-13.2.0/STAR-2.7.11b/source
+STAR git: 
+##### Command Line:
+STAR --genomeDir /mnt/ufs18/home-183/cholicog/Jupyter_Notebooks/Working_lncRNA/00_Build_mm39_Genome_for_bulk_RNAseq/mm39_Genome --readFilesIn /mnt/gs21/scratch/cholicog/Mouse/RAW_FASTQ/Consolidated/Trim_Files/trimmed.P161_L27_1.fq.gz /mnt/gs21/scratch/cholicog/Mouse/RAW_FASTQ/Consolidated/Trim_Files/trimmed.P161_L27_2.fq.gz --readFilesCommand gunzip -c --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts --runThreadN 8 --outFileNamePrefix /mnt/gs21/scratch/cholicog/Mouse/Alignment_Data//L27_
+##### Initial USER parameters from Command Line:
+outFileNamePrefix                 /mnt/gs21/scratch/cholicog/Mouse/Alignment_Data//L27_
+###### All USER parameters from Command Line:
+genomeDir                     /mnt/ufs18/home-183/cholicog/Jupyter_Notebooks/Working_lncRNA/00_Build_mm39_Genome_for_bulk_RNAseq/mm39_Genome     ~RE-DEFINED
+readFilesIn                   /mnt/gs21/scratch/cholicog/Mouse/RAW_FASTQ/Consolidated/Trim_Files/trimmed.P161_L27_1.fq.gz   /mnt/gs21/scratch/cholicog/Mouse/RAW_FASTQ/Consolidated/Trim_Files/trimmed.P161_L27_2.fq.gz        ~RE-DEFINED
+readFilesCommand              gunzip   -c        ~RE-DEFINED
+outSAMtype                    BAM   SortedByCoordinate        ~RE-DEFINED
+quantMode                     GeneCounts        ~RE-DEFINED
+runThreadN                    8     ~RE-DEFINED
+outFileNamePrefix             /mnt/gs21/scratch/cholicog/Mouse/Alignment_Data//L27_     ~RE-DEFINED
+##### Finished reading parameters from all sources
+
+##### Final user re-defined parameters-----------------:
+runThreadN                        8
+genomeDir                         /mnt/ufs18/home-183/cholicog/Jupyter_Notebooks/Working_lncRNA/00_Build_mm39_Genome_for_bulk_RNAseq/mm39_Genome
+readFilesIn                       /mnt/gs21/scratch/cholicog/Mouse/RAW_FASTQ/Consolidated/Trim_Files/trimmed.P161_L27_1.fq.gz   /mnt/gs21/scratch/cholicog/Mouse/RAW_FASTQ/Consolidated/Trim_Files/trimmed.P161_L27_2.fq.gz   
+readFilesCommand                  gunzip   -c   
+outFileNamePrefix                 /mnt/gs21/scratch/cholicog/Mouse/Alignment_Data//L27_
+outSAMtype                        BAM   SortedByCoordinate   
+quantMode                         GeneCounts   
+
+-------------------------------
+##### Final effective command line:
+STAR   --runThreadN 8   --genomeDir /mnt/ufs18/home-183/cholicog/Jupyter_Notebooks/Working_lncRNA/00_Build_mm39_Genome_for_bulk_RNAseq/mm39_Genome   --readFilesIn /mnt/gs21/scratch/cholicog/Mouse/RAW_FASTQ/Consolidated/Trim_Files/trimmed.P161_L27_1.fq.gz   /mnt/gs21/scratch/cholicog/Mouse/RAW_FASTQ/Consolidated/Trim_Files/trimmed.P161_L27_2.fq.gz      --readFilesCommand gunzip   -c      --outFileNamePrefix /mnt/gs21/scratch/cholicog/Mouse/Alignment_Data//L27_   --outSAMtype BAM   SortedByCoordinate      --quantMode GeneCounts   
+----------------------------------------
+
+Number of fastq files for each mate = 1
+
+   Input read files for mate 1 :
+-rw-r----- 1 cholicog biochem 1430999947 Feb 25 14:10 /mnt/gs21/scratch/cholicog/Mouse/RAW_FASTQ/Consolidated/Trim_Files/trimmed.P161_L27_1.fq.gz
+
+   readsCommandsFile:
+exec > "/mnt/gs21/scratch/cholicog/Mouse/Alignment_Data//L27__STARtmp/tmp.fifo.read1"
+echo FILE 0
+gunzip   -c      "/mnt/gs21/scratch/cholicog/Mouse/RAW_FASTQ/Consolidated/Trim_Files/trimmed.P161_L27_1.fq.gz"
+
+
+   Input read files for mate 2 :
+-rw-r----- 1 cholicog biochem 1485562037 Feb 25 14:10 /mnt/gs21/scratch/cholicog/Mouse/RAW_FASTQ/Consolidated/Trim_Files/trimmed.P161_L27_2.fq.gz
+
+   readsCommandsFile:
+exec > "/mnt/gs21/scratch/cholicog/Mouse/Alignment_Data//L27__STARtmp/tmp.fifo.read2"
+echo FILE 0
+gunzip   -c      "/mnt/gs21/scratch/cholicog/Mouse/RAW_FASTQ/Consolidated/Trim_Files/trimmed.P161_L27_2.fq.gz"
+
+ParametersSolo: --soloCellFilterType CellRanger2.2 filtering parameters:  3000 0.99 10
+WARNING: --limitBAMsortRAM=0, will use genome size as RAM limit for BAM sorting
+Finished loading and checking parameters
+Reading genome generation parameters:
+### STAR   --runMode genomeGenerate      --runThreadN 9   --genomeDir .   --genomeFastaFiles ./mm39.fa      --genomeSAindexNbases 12   --limitGenomeGenerateRAM 60000000000   --sjdbGTFfile ../../00_Karri_et_al_GTF/Karri_Annotations_Restructured_mm39.gtf   --sjdbOverhang 149
+### GstrandBit=32
+versionGenome                 2.7.4a     ~RE-DEFINED
+genomeType                    Full     ~RE-DEFINED
+genomeFastaFiles              ./mm39.fa        ~RE-DEFINED
+genomeSAindexNbases           12     ~RE-DEFINED
+genomeChrBinNbits             18     ~RE-DEFINED
+genomeSAsparseD               1     ~RE-DEFINED
+genomeTransformType           None     ~RE-DEFINED
+genomeTransformVCF            -     ~RE-DEFINED
+sjdbOverhang                  149     ~RE-DEFINED
+sjdbFileChrStartEnd           -        ~RE-DEFINED
+sjdbGTFfile                   ../../00_Karri_et_al_GTF/Karri_Annotations_Restructured_mm39.gtf     ~RE-DEFINED
+sjdbGTFchrPrefix              -     ~RE-DEFINED
+sjdbGTFfeatureExon            exon     ~RE-DEFINED
+sjdbGTFtagExonParentTranscripttranscript_id     ~RE-DEFINED
+sjdbGTFtagExonParentGene      gene_id     ~RE-DEFINED
+sjdbInsertSave                Basic     ~RE-DEFINED
+genomeFileSizes               2740059627   21914635788        ~RE-DEFINED
+Genome version is compatible with current STAR
+Number of real (reference) chromosomes= 61
+1	chr1	195154279	0
+2	chr10	130530862	195297280
+3	chr11	121973369	325844992
+4	chr12	120092757	448004096
+5	chr13	120883175	568328192
+6	chr14	125139656	689438720
+7	chr15	104073951	814743552
+8	chr16	98008968	919076864
+9	chr17	95294699	1017118720
+10	chr18	90720763	1112539136
+11	chr19	61420004	1203503104
+12	chr1_GL456210v1_random	169725	1265106944
+13	chr1_GL456211v1_random	241735	1265369088
+14	chr1_GL456212v1_random	153618	1265631232
+15	chr1_GL456221v1_random	206961	1265893376
+16	chr1_MU069434v1_random	8412	1266155520
+17	chr1_GL456239v1_random	40056	1266417664
+18	chr2	181755017	1266679808
+19	chr3	159745316	1448607744
+20	chr4	156860686	1608515584
+21	chr4_JH584295v1_random	1976	1765539840
+22	chr5	151758149	1765801984
+23	chr5_JH584296v1_random	199368	1917583360
+24	chr5_JH584297v1_random	205776	1917845504
+25	chr5_JH584298v1_random	184189	1918107648
+26	chr5_GL456354v1_random	195993	1918369792
+27	chr5_JH584299v1_random	953012	1918631936
+28	chr6	149588044	1919680512
+29	chr7	144995196	2069364736
+30	chr7_GL456219v1_random	175968	2214592512
+31	chr8	130127694	2214854656
+32	chr9	124359700	2345140224
+33	chrM	16299	2469658624
+34	chrUn_GL456359v1	22974	2469920768
+35	chrUn_GL456360v1	31704	2470182912
+36	chrUn_GL456366v1	47073	2470445056
+37	chrUn_GL456367v1	42057	2470707200
+38	chrUn_GL456368v1	20208	2470969344
+39	chrUn_GL456370v1	26764	2471231488
+40	chrUn_GL456372v1	28664	2471493632
+41	chrUn_GL456378v1	31602	2471755776
+42	chrUn_GL456379v1	72385	2472017920
+43	chrUn_GL456381v1	25871	2472280064
+44	chrUn_GL456382v1	23158	2472542208
+45	chrUn_GL456383v1	38659	2472804352
+46	chrUn_GL456385v1	35240	2473066496
+47	chrUn_GL456387v1	24685	2473328640
+48	chrUn_GL456389v1	28772	2473590784
+49	chrUn_GL456390v1	24668	2473852928
+50	chrUn_GL456392v1	23629	2474115072
+51	chrUn_GL456394v1	24323	2474377216
+52	chrUn_GL456396v1	21240	2474639360
+53	chrUn_JH584304v1	114452	2474901504
+54	chrUn_MU069435v1	31129	2475163648
+55	chrX	169476592	2475425792
+56	chrX_GL456233v2_random	559103	2645032960
+57	chrY	91455967	2645819392
+58	chrY_JH584300v1_random	182347	2737307648
+59	chrY_JH584301v1_random	259875	2737569792
+60	chrY_JH584302v1_random	155838	2737831936
+61	chrY_JH584303v1_random	158099	2738094080
+--sjdbOverhang = 149 taken from the generated genome
+Started loading the genome: Tue Feb 25 14:28:53 2025
+
+Genome: size given as a parameter = 2740059627
+SA: size given as a parameter = 21914635788
+SAindex: size given as a parameter = 1
+Read from SAindex: pGe.gSAindexNbases=12  nSAi=22369620
+nGenome=2740059627;  nSAbyte=21914635788
+GstrandBit=32   SA number of indices=5312638978
+Shared memory is not used for genomes. Allocated a private copy of the genome.
+Genome file size: 2740059627 bytes; state: good=1 eof=0 fail=0 bad=0
+Loading Genome ... done! state: good=1 eof=0 fail=0 bad=0; loaded 2740059627 bytes
+SA file size: 21914635788 bytes; state: good=1 eof=0 fail=0 bad=0
+Loading SA ... done! state: good=1 eof=0 fail=0 bad=0; loaded 21914635788 bytes
+Loading SAindex ... done: 97867203 bytes
+Finished loading the genome: Tue Feb 25 14:29:30 2025
+
+Processing splice junctions database sjdbN=5697,   pGe.sjdbOverhang=149 
+alignIntronMax=alignMatesGapMax=0, the max intron size will be approximately determined by (2^winBinNbits)*winAnchorDistNbins=589824
+Created thread # 1
+Starting to map file # 0
+mate 1:   /mnt/gs21/scratch/cholicog/Mouse/RAW_FASTQ/Consolidated/Trim_Files/trimmed.P161_L27_1.fq.gz
+mate 2:   /mnt/gs21/scratch/cholicog/Mouse/RAW_FASTQ/Consolidated/Trim_Files/trimmed.P161_L27_2.fq.gz
+Created thread # 2
+Created thread # 3
+Created thread # 4
+Created thread # 5
+Created thread # 6
+Created thread # 7
+BAM sorting: 148691 mapped reads
+BAM sorting bins genomic start loci:
+1	0	24653255
+2	0	24654768
+3	0	84989902
+4	0	171962623
+5	1	75695519
+6	1	127921996
+7	2	52137333
+8	2	86704790
+9	2	120389591
+10	3	100172876
+11	4	38167400
+12	4	119593598
+13	5	64187600
+14	6	74830694
+15	7	10962006
+16	7	93404955
+17	8	37260431
+18	8	82718014
+19	9	84869567
+20	10	10185899
+21	17	4904326
+22	17	75471608
+23	17	152624160
+24	18	61272827
+25	18	107871108
+26	18	153631398
+27	19	109242623
+28	19	137286405
+29	21	65570923
+30	21	90618664
+31	21	116771369
+32	21	145714881
+33	27	72533220
+34	27	146504403
+35	28	26012309
+36	28	45109091
+37	28	126274410
+38	30	67966937
+39	30	110725640
+40	31	50255970
+41	31	57589460
+42	31	84306441
+43	31	114204377
+44	32	5805
+45	32	6651
+46	32	8106
+47	32	10848
+48	53	36
+Thread #7 end of input stream, nextChar=-1
+Completed: thread #4
+Completed: thread #1
+Completed: thread #5
+Completed: thread #6
+Completed: thread #7
+Completed: thread #3
+Completed: thread #2
+Completed: thread #0
+Joined thread # 1
+Joined thread # 2
+Joined thread # 3
+Joined thread # 4
+Joined thread # 5
+Joined thread # 6
+Joined thread # 7
+Feb 25 14:37:08 ..... finished mapping
+RAM after mapping:
+VmPeak:	26080016 kB; VmSize:	26010672 kB; VmHWM:	25674780 kB; VmRSS:	25673580 kB; 
+RAM after freeing genome index memory:
+VmPeak:	26080016 kB; VmSize:	 1838244 kB; VmHWM:	25674780 kB; VmRSS:	 1501152 kB; 
+Feb 25 14:37:09 ..... started sorting BAM
+Max memory needed for sorting = 371008896
+ALL DONE!

@@ -1,0 +1,104 @@
+
+Currently Loaded Modules:
+  1) Java/11 -> Java/11.0.20   2) FastQC/0.12.1-Java-11
+
+ 
+
+Started analysis of P161_L02_1.fq.gz
+Approx 5% complete for P161_L02_1.fq.gz
+Approx 10% complete for P161_L02_1.fq.gz
+Approx 15% complete for P161_L02_1.fq.gz
+Approx 20% complete for P161_L02_1.fq.gz
+Approx 25% complete for P161_L02_1.fq.gz
+Approx 30% complete for P161_L02_1.fq.gz
+Approx 35% complete for P161_L02_1.fq.gz
+Approx 40% complete for P161_L02_1.fq.gz
+Approx 45% complete for P161_L02_1.fq.gz
+Approx 50% complete for P161_L02_1.fq.gz
+Approx 55% complete for P161_L02_1.fq.gz
+Approx 60% complete for P161_L02_1.fq.gz
+Approx 65% complete for P161_L02_1.fq.gz
+Approx 70% complete for P161_L02_1.fq.gz
+Approx 75% complete for P161_L02_1.fq.gz
+Approx 80% complete for P161_L02_1.fq.gz
+Approx 85% complete for P161_L02_1.fq.gz
+Approx 90% complete for P161_L02_1.fq.gz
+Approx 95% complete for P161_L02_1.fq.gz
+Started analysis of P161_L02_2.fq.gz
+Approx 5% complete for P161_L02_2.fq.gz
+Approx 10% complete for P161_L02_2.fq.gz
+Approx 15% complete for P161_L02_2.fq.gz
+Approx 20% complete for P161_L02_2.fq.gz
+Approx 25% complete for P161_L02_2.fq.gz
+Approx 30% complete for P161_L02_2.fq.gz
+Approx 35% complete for P161_L02_2.fq.gz
+Approx 40% complete for P161_L02_2.fq.gz
+Approx 45% complete for P161_L02_2.fq.gz
+Approx 50% complete for P161_L02_2.fq.gz
+Approx 55% complete for P161_L02_2.fq.gz
+Approx 60% complete for P161_L02_2.fq.gz
+Approx 65% complete for P161_L02_2.fq.gz
+Approx 70% complete for P161_L02_2.fq.gz
+Approx 75% complete for P161_L02_2.fq.gz
+Approx 80% complete for P161_L02_2.fq.gz
+Approx 85% complete for P161_L02_2.fq.gz
+Approx 90% complete for P161_L02_2.fq.gz
+Approx 95% complete for P161_L02_2.fq.gz
+To execute Trimmomatic run: java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar
+TrimmomaticPE: Started with arguments:
+ -threads 12 -trimlog P161_L02_trim.log P161_L02_1.fq.gz P161_L02_2.fq.gz trimmed.P161_L02_1.fq.gz un.trimmed.P161_L02_1.fq.gz trimmed.P161_L02_2.fq.gz un.trimmed.P161_L02_2.fq.gz ILLUMINACLIP:/mnt/research/zacharewski_lab/Scripts/RNAseq_STAR/NovogeneAdapters.fa:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36
+Using Long Clipping Sequence: 'AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT'
+Using Long Clipping Sequence: 'GATCGGAAGAGCACACGTCTGAACTCCAGTCACGGATGACTATCTCGTATGCCGTCTTCTGCTTG'
+ILLUMINACLIP: Using 0 prefix pairs, 2 forward/reverse sequences, 0 forward only sequences, 0 reverse only sequences
+Quality encoding detected as phred33
+Input Read Pairs: 21273976 Both Surviving: 21053790 (98.96%) Forward Only Surviving: 135787 (0.64%) Reverse Only Surviving: 69472 (0.33%) Dropped: 14927 (0.07%)
+TrimmomaticPE: Completed successfully
+mv: cannot stat '*trim*': No such file or directory
+
+Currently Loaded Modules:
+  1) Java/11 -> Java/11.0.20   2) FastQC/0.12.1-Java-11
+
+ 
+
+Started analysis of trimmed.P161_L02_1.fq.gz
+Approx 5% complete for trimmed.P161_L02_1.fq.gz
+Approx 10% complete for trimmed.P161_L02_1.fq.gz
+Approx 15% complete for trimmed.P161_L02_1.fq.gz
+Approx 20% complete for trimmed.P161_L02_1.fq.gz
+Approx 25% complete for trimmed.P161_L02_1.fq.gz
+Approx 30% complete for trimmed.P161_L02_1.fq.gz
+Approx 35% complete for trimmed.P161_L02_1.fq.gz
+Approx 40% complete for trimmed.P161_L02_1.fq.gz
+Approx 45% complete for trimmed.P161_L02_1.fq.gz
+Approx 50% complete for trimmed.P161_L02_1.fq.gz
+Approx 55% complete for trimmed.P161_L02_1.fq.gz
+Approx 60% complete for trimmed.P161_L02_1.fq.gz
+Approx 65% complete for trimmed.P161_L02_1.fq.gz
+Approx 70% complete for trimmed.P161_L02_1.fq.gz
+Approx 75% complete for trimmed.P161_L02_1.fq.gz
+Approx 80% complete for trimmed.P161_L02_1.fq.gz
+Approx 85% complete for trimmed.P161_L02_1.fq.gz
+Approx 90% complete for trimmed.P161_L02_1.fq.gz
+Approx 95% complete for trimmed.P161_L02_1.fq.gz
+Started analysis of trimmed.P161_L02_2.fq.gz
+Approx 5% complete for trimmed.P161_L02_2.fq.gz
+Approx 10% complete for trimmed.P161_L02_2.fq.gz
+Approx 15% complete for trimmed.P161_L02_2.fq.gz
+Approx 20% complete for trimmed.P161_L02_2.fq.gz
+Approx 25% complete for trimmed.P161_L02_2.fq.gz
+Approx 30% complete for trimmed.P161_L02_2.fq.gz
+Approx 35% complete for trimmed.P161_L02_2.fq.gz
+Approx 40% complete for trimmed.P161_L02_2.fq.gz
+Approx 45% complete for trimmed.P161_L02_2.fq.gz
+Approx 50% complete for trimmed.P161_L02_2.fq.gz
+Approx 55% complete for trimmed.P161_L02_2.fq.gz
+Approx 60% complete for trimmed.P161_L02_2.fq.gz
+Approx 65% complete for trimmed.P161_L02_2.fq.gz
+Approx 70% complete for trimmed.P161_L02_2.fq.gz
+Approx 75% complete for trimmed.P161_L02_2.fq.gz
+Approx 80% complete for trimmed.P161_L02_2.fq.gz
+Approx 85% complete for trimmed.P161_L02_2.fq.gz
+Approx 90% complete for trimmed.P161_L02_2.fq.gz
+Approx 95% complete for trimmed.P161_L02_2.fq.gz
+mv: cannot stat '*fastqc*': No such file or directory
+mv: cannot move 'QC_and_Trim_Reports' to a subdirectory of itself, './QC_and_Trim_Reports/QC_and_Trim_Reports'

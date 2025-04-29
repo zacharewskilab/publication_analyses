@@ -1,0 +1,8 @@
+Running initial QC on files in /mnt/gs21/scratch/cholicog/Rat/Concatenated/
+Running FastQC on L71_R1_001_combined.fastq.gz
+application/gzip
+Analysis complete for L71_R1_001_combined.fastq.gz
+First QC complete
+Trimming adapters from L71_R1_001_combined.fastq.gz
+Running FastQC on trimmed.L71_R1_001_combined.fastq.gz
+Finished trimming and QC for L71_R1_001_combined

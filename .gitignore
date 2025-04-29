@@ -1,0 +1,14 @@
+Analyses/TCDD_lncRNA_Repo/**/RAW_Data/*.mtx
+Analyses/TCDD_lncRNA_Repo/**/*.tsv
+Analyses/TCDD_lncRNA_Repo/**/*.txt
+Analyses/TCDD_lncRNA_Repo/**/*.gtf
+Analyses/TCDD_lncRNA_Repo/**/*.mtx
+Analyses/TCDD_lncRNA_Repo/**/*.tsv
+Analyses/TCDD_lncRNA_Repo/**/*.txt
+Analyses/TCDD_lncRNA_Repo/**/*.gtf
+Analyses/TCDD_lncRNA_Repo/**/*.ipynb_checkpoints/*
+Analyses/TCDD_lncRNA_Repo/**/*.mtx
+Analyses/TCDD_lncRNA_Repo/**/*.tsv
+Analyses/TCDD_lncRNA_Repo/**/*.txt
+Analyses/TCDD_lncRNA_Repo/**/*.gtf
+Analyses/TCDD_lncRNA_Repo/**/*.ipynb_checkpoints
